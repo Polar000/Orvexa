@@ -1,0 +1,85 @@
+@import "tailwindcss";
+
+@layer base {
+  :root {
+    --orvexa-black: #080A0B;
+    --orvexa-graphite: #15191C;
+    --orvexa-dark-gray: #252B2F;
+    --orvexa-white: #F5F6F3;
+    --orvexa-light-gray: #9BA2A6;
+    --orvexa-industrial-yellow: #F5B800;
+    --orvexa-bright-yellow: #FFD23F;
+  }
+}
+
+body {
+  background-color: #080A0B;
+  color: #F5F6F3;
+  font-family: var(--font-inter), system-ui, -apple-system, sans-serif;
+  overflow-x: hidden;
+  selection-background-color: #F5B800;
+  selection-color: #080A0B;
+}
+
+::selection {
+  background-color: #F5B800;
+  color: #080A0B;
+}
+
+/* Custom Scrollbar */
+::-webkit-scrollbar {
+  width: 6px;
+}
+::-webkit-scrollbar-track {
+  background: #080A0B;
+}
+::-webkit-scrollbar-thumb {
+  background: #252B2F;
+  border-radius: 3px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: #F5B800;
+}
+
+/* Glassmorphism utilities */
+.glass-panel {
+  background: rgba(21, 25, 28, 0.7);
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+  border: 1px solid rgba(245, 246, 243, 0.08);
+}
+
+.glass-panel-hover {
+  transition: all 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+}
+.glass-panel-hover:hover {
+  background: rgba(37, 43, 47, 0.85);
+  border-color: rgba(245, 184, 0, 0.4);
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.5), 0 0 15px rgba(245, 184, 0, 0.1);
+}
+
+/* Industrial Grid Background */
+.bg-industrial-grid {
+  background-image: linear-gradient(rgba(245, 246, 243, 0.03) 1px, transparent 1px),
+                    linear-gradient(90deg, rgba(245, 246, 243, 0.03) 1px, transparent 1px);
+  background-size: 40px 40px;
+}
+
+/* Typography Helpers */
+.font-heading {
+  font-family: var(--font-space-grotesk), sans-serif;
+}
+
+/* Text stroke effect for cinematic typography */
+.text-stroke-subtle {
+  -webkit-text-stroke: 1px rgba(245, 246, 243, 0.2);
+}
+
+/* Glow effects */
+.yellow-glow {
+  box-shadow: 0 0 25px rgba(245, 184, 0, 0.25);
+}
+
+.yellow-glow-text {
+  text-shadow: 0 0 12px rgba(245, 184, 0, 0.5);
+}
