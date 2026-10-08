@@ -21,8 +21,8 @@ export function ContactSection({ initialMachine, isOpenModal, onCloseModal }: Co
     phone: "",
     email: "",
     location: "",
-    projectType: "Movimiento de Tierras",
-    machinery: initialMachine || "Excavadora EX-350 HD",
+    projectType: "Servicio de Hincado Solar",
+    machinery: initialMachine || "Hincadora HWL600R",
     message: "",
   });
 
@@ -47,7 +47,7 @@ export function ContactSection({ initialMachine, isOpenModal, onCloseModal }: Co
                 <span className="text-[#F5B800]">IN MIND?</span>
               </h2>
               <p className="text-base sm:text-lg text-[#9BA2A6] font-sans font-light max-w-lg">
-                Pongamos la maquinaria a trabajar. Solicita una cotización técnica o consulta la disponibilidad de flota en tiempo real.
+                Pongamos la Hincadora HWL600R y el Bobcat a trabajar en tu obra. Solicita una cotización técnica o consulta la disponibilidad de servicios en tiempo real.
               </p>
               <div className="flex flex-wrap gap-4 pt-2">
                 <a
@@ -83,13 +83,13 @@ export function ContactSection({ initialMachine, isOpenModal, onCloseModal }: Co
                   />
                   <pointLight position={[-3, 2, -2]} intensity={1.5} color="#FFD23F" />
 
-                  <Fleet3DMachinery type="excavator" colorAccent="#F5B800" />
-                  <IndustrialTerrain />
+                  <Fleet3DMachinery type="solar_rig" colorAccent="#F5B800" />
+                  <IndustrialTerrain showSolarPanels={true} />
                 </Canvas>
               </WebGLErrorBoundary>
 
               <div className="absolute bottom-3 left-3 bg-[#15191C]/80 px-3 py-1 rounded text-[10px] font-mono text-[#F5B800] border border-[#252B2F]">
-                ORVEXA POWER SPOTLIGHT
+                ORVEXA HWL600R SPOTLIGHT
               </div>
             </div>
           </div>
@@ -107,7 +107,7 @@ export function ContactSection({ initialMachine, isOpenModal, onCloseModal }: Co
                 HABLAR CON ORVEXA
               </h3>
               <p className="text-sm text-[#9BA2A6] font-sans">
-                Atención técnica comercial para licitaciones, alquileres e ingeniería de campo.
+                Atención técnica comercial para licitaciones solares, alquileres y servicios de infraestructura de campo.
               </p>
             </div>
 
@@ -161,7 +161,7 @@ export function ContactSection({ initialMachine, isOpenModal, onCloseModal }: Co
                   SOLICITUD ENVIADA CON ÉXITO
                 </h4>
                 <p className="text-sm text-[#9BA2A6] max-w-md mx-auto">
-                  Un ingeniero especialista de ORVEXA revisará las especificaciones de tu proyecto y se comunicará en menos de 2 horas.
+                  Un especialista de ORVEXA revisará los requerimientos de tu obra y se comunicará en menos de 2 horas.
                 </p>
                 <button
                   onClick={() => setSubmitted(false)}
@@ -203,7 +203,7 @@ export function ContactSection({ initialMachine, isOpenModal, onCloseModal }: Co
                     <input
                       type="text"
                       required
-                      placeholder="Infraestructura Global S.A."
+                      placeholder="Infraestructura Solar S.A."
                       value={formData.company}
                       onChange={(e) => setFormData({ ...formData, company: e.target.value })}
                       className="w-full bg-[#080A0B] border border-[#252B2F] focus:border-[#F5B800] rounded px-4 py-3 text-xs text-[#F5F6F3] outline-none font-mono"
@@ -253,18 +253,18 @@ export function ContactSection({ initialMachine, isOpenModal, onCloseModal }: Co
 
                   <div>
                     <label className="text-[11px] font-mono text-[#9BA2A6] uppercase block mb-1">
-                      TIPO DE PROYECTO
+                      TIPO DE SERVICIO / REQUERIMIENTO
                     </label>
                     <select
                       value={formData.projectType}
                       onChange={(e) => setFormData({ ...formData, projectType: e.target.value })}
                       className="w-full bg-[#080A0B] border border-[#252B2F] focus:border-[#F5B800] rounded px-4 py-3 text-xs text-[#F5F6F3] outline-none font-mono"
                     >
-                      <option value="Movimiento de Tierras">Movimiento de Tierras</option>
-                      <option value="Alquiler de Maquinaria">Alquiler de Maquinaria</option>
-                      <option value="Perforación Geotécnica">Perforación Geotécnica</option>
-                      <option value="Infraestructura Solar">Infraestructura Solar</option>
-                      <option value="Obra Civil General">Obra Civil General</option>
+                      <option value="Servicio de Hincado Solar">Servicio de Hincado Solar (HWL600R)</option>
+                      <option value="Servicios de Nivelación y Bobcat">Servicios de Nivelación y Bobcat</option>
+                      <option value="Alquiler de Hincadora HWL600R">Alquiler de Hincadora HWL600R</option>
+                      <option value="Alquiler de Bobcat">Alquiler de Minicargador Bobcat</option>
+                      <option value="Servicio Integral de Obra Civil">Servicio Integral de Obra Civil & Solar</option>
                     </select>
                   </div>
                 </div>
@@ -287,7 +287,7 @@ export function ContactSection({ initialMachine, isOpenModal, onCloseModal }: Co
                   </label>
                   <textarea
                     rows={4}
-                    placeholder="Describe volúmenes, plazos de ejecución o requerimientos específicos de tu obra..."
+                    placeholder="Indica número de postes, tipo de suelo, metros cuadrados o requerimientos específicos de tu obra..."
                     value={formData.message}
                     onChange={(e) => setFormData({ ...formData, message: e.target.value })}
                     className="w-full bg-[#080A0B] border border-[#252B2F] focus:border-[#F5B800] rounded px-4 py-3 text-xs text-[#F5F6F3] outline-none font-mono resize-none"

@@ -13,11 +13,8 @@ export function RentalSection({ onQuoteClick }: RentalSectionProps) {
 
   const categories = [
     { label: "TODOS", value: "TODOS" },
-    { label: "EXCAVADORAS", value: "excavadora" },
-    { label: "BOBCATS", value: "bobcat" },
-    { label: "RETROEXCAVADORAS", value: "retroexcavadora" },
-    { label: "PERFORACIÓN", value: "perforadora" },
-    { label: "SOLAR", value: "solar" },
+    { label: "HINCADORA HWL600R", value: "hincadora" },
+    { label: "BOBCAT", value: "bobcat" },
   ];
 
   const filteredFleet = selectedCategory === "TODOS"
@@ -31,13 +28,13 @@ export function RentalSection({ onQuoteClick }: RentalSectionProps) {
         <div className="flex flex-col md:flex-row md:items-end justify-between gap-6 mb-12">
           <div className="space-y-3 max-w-2xl">
             <div className="inline-flex items-center gap-2 px-3 py-1 bg-[#15191C] border border-[#F5B800]/30 rounded text-[10px] font-mono tracking-widest text-[#F5B800] uppercase font-bold">
-              <Truck className="w-3.5 h-3.5" /> MARKETPLACE DE ALQUILER
+              <Truck className="w-3.5 h-3.5" /> MAQUINARIA EN ALQUILER Y SERVICIOS
             </div>
             <h2 className="font-heading text-5xl sm:text-7xl font-extrabold text-[#F5F6F3] uppercase tracking-tighter">
               NEED EQUIPMENT?
             </h2>
             <p className="text-base sm:text-lg text-[#9BA2A6] font-sans font-light">
-              Encuentra la maquinaria adecuada para tu proyecto. Alquiler flexible por día, mes o contrato extendido.
+              Encuentra la maquinaria ideal para tu obra solar o proyecto de infraestructura. Alquiler flexible por hincado, día, mes o servicio completo.
             </p>
           </div>
 
@@ -60,11 +57,11 @@ export function RentalSection({ onQuoteClick }: RentalSectionProps) {
         </div>
 
         {/* MARKETPLACE GRID */}
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
           {filteredFleet.map((machine) => (
             <div
               key={machine.id}
-              className="bg-[#15191C] border border-[#252B2F] rounded-2xl p-6 flex flex-col justify-between hover:border-[#F5B800]/60 transition-all duration-300 group hover:-translate-y-1 shadow-xl"
+              className="bg-[#15191C] border border-[#252B2F] rounded-2xl p-8 flex flex-col justify-between hover:border-[#F5B800]/60 transition-all duration-300 group hover:-translate-y-1 shadow-xl"
             >
               <div className="space-y-6">
                 {/* CARD HEADER */}
@@ -78,8 +75,8 @@ export function RentalSection({ onQuoteClick }: RentalSectionProps) {
                 </div>
 
                 {/* GRAPHIC CARD BANNER */}
-                <div className="h-40 bg-[#080A0B] border border-[#252B2F] rounded-xl flex items-center justify-center relative overflow-hidden group-hover:border-[#F5B800]/40 transition-colors">
-                  <div className="text-center space-y-1">
+                <div className="h-44 bg-[#080A0B] border border-[#252B2F] rounded-xl flex items-center justify-center relative overflow-hidden group-hover:border-[#F5B800]/40 transition-colors">
+                  <div className="text-center space-y-2">
                     <Cpu className="w-10 h-10 text-[#F5B800] mx-auto opacity-80 group-hover:scale-110 transition-transform duration-300" />
                     <span className="text-xs font-mono text-[#F5F6F3] font-bold uppercase block">
                       {machine.operatingWeight} | {machine.enginePower}
@@ -89,17 +86,17 @@ export function RentalSection({ onQuoteClick }: RentalSectionProps) {
 
                 {/* TITLE & DESCRIPTION */}
                 <div>
-                  <h3 className="font-heading text-xl font-bold text-[#F5F6F3] uppercase tracking-tight group-hover:text-[#F5B800] transition-colors">
+                  <h3 className="font-heading text-2xl font-bold text-[#F5F6F3] uppercase tracking-tight group-hover:text-[#F5B800] transition-colors">
                     {machine.name}
                   </h3>
-                  <p className="text-xs text-[#9BA2A6] mt-2 line-clamp-2 font-sans">
+                  <p className="text-xs text-[#9BA2A6] mt-2 font-sans leading-relaxed">
                     {machine.tagline}
                   </p>
                 </div>
 
                 {/* QUICK SPECS LIST */}
                 <div className="space-y-2 pt-2 border-t border-[#252B2F]">
-                  {machine.detailedSpecs.slice(0, 3).map((spec, i) => (
+                  {machine.detailedSpecs.slice(0, 4).map((spec, i) => (
                     <div key={i} className="flex items-center justify-between text-xs">
                       <span className="text-[#9BA2A6] font-mono">{spec.label}:</span>
                       <span className="text-[#F5F6F3] font-mono font-bold">{spec.value}</span>
@@ -112,9 +109,9 @@ export function RentalSection({ onQuoteClick }: RentalSectionProps) {
               <div className="pt-6 mt-6 border-t border-[#252B2F]">
                 <button
                   onClick={() => onQuoteClick(machine.name)}
-                  className="w-full inline-flex items-center justify-center gap-2 py-3 bg-[#252B2F] hover:bg-[#F5B800] text-[#F5F6F3] hover:text-[#080A0B] font-mono font-bold text-xs uppercase tracking-widest rounded transition-all duration-300"
+                  className="w-full inline-flex items-center justify-center gap-2 py-3.5 bg-[#252B2F] hover:bg-[#F5B800] text-[#F5F6F3] hover:text-[#080A0B] font-mono font-bold text-xs uppercase tracking-widest rounded transition-all duration-300"
                 >
-                  <span>CONSULTAR ALQUILER</span>
+                  <span>SOLICITAR COTIZACIÓN DE {machine.code}</span>
                   <ArrowUpRight className="w-4 h-4" />
                 </button>
               </div>
