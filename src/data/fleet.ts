@@ -61,6 +61,7 @@ export const FLEET_CATALOG: EquipmentItem[] = [
     id: 'orvexa-bobcat-s650',
     slug: 'minicargador-bobcat',
     name: 'MINICARGADOR BOBCAT COMPACT',
+    image: '/images/fleet/bobcat.png',
     code: 'BOBCAT TURBO',
     category: 'bobcat',
     categoryLabel: 'Cargadores Compactos & Nivelación',
