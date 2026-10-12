@@ -22,6 +22,7 @@ export interface EquipmentItem {
   maxDrillDepth?: string;
   featured: boolean;
   model3DType: 'solar_rig' | 'bobcat' | 'excavator';
+  image?: string;
 }
 
 export const FLEET_CATALOG: EquipmentItem[] = [
@@ -29,6 +30,7 @@ export const FLEET_CATALOG: EquipmentItem[] = [
     id: 'orvexa-hwl600r',
     slug: 'hincadora-orvexa-hwl600r',
     name: 'HINCADORA SOLAR HWL600R',
+    image: '/images/fleet/hwl600r.png',
     code: 'HWL600R',
     category: 'hincadora',
     categoryLabel: 'Infraestructura Solar & Hincado',

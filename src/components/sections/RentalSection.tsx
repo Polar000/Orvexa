@@ -75,13 +75,21 @@ export function RentalSection({ onQuoteClick }: RentalSectionProps) {
                 </div>
 
                 {/* GRAPHIC CARD BANNER */}
-                <div className="h-44 bg-[#080A0B] border border-[#252B2F] rounded-xl flex items-center justify-center relative overflow-hidden group-hover:border-[#F5B800]/40 transition-colors">
-                  <div className="text-center space-y-2">
-                    <Cpu className="w-10 h-10 text-[#F5B800] mx-auto opacity-80 group-hover:scale-110 transition-transform duration-300" />
-                    <span className="text-xs font-mono text-[#F5F6F3] font-bold uppercase block">
-                      {machine.operatingWeight} | {machine.enginePower}
-                    </span>
-                  </div>
+                <div className="h-44 bg-[#080A0B] border border-[#252B2F] rounded-xl flex items-center justify-center relative overflow-hidden group-hover:border-[#F5B800]/40 transition-colors p-4">
+                  {machine.image ? (
+                    <img
+                      src={machine.image}
+                      alt={machine.name}
+                      className="max-h-full max-w-full object-contain group-hover:scale-105 transition-transform duration-300 drop-shadow-[0_4px_10px_rgba(245,184,0,0.15)]"
+                    />
+                  ) : (
+                    <div className="text-center space-y-2">
+                      <Cpu className="w-10 h-10 text-[#F5B800] mx-auto opacity-80 group-hover:scale-110 transition-transform duration-300" />
+                      <span className="text-xs font-mono text-[#F5F6F3] font-bold uppercase block">
+                        {machine.operatingWeight} | {machine.enginePower}
+                      </span>
+                    </div>
+                  )}
                 </div>
 
                 {/* TITLE & DESCRIPTION */}

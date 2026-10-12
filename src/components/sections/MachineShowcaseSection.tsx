@@ -99,24 +99,46 @@ export function MachineShowcaseSection({ selectedMachine, onQuoteClick }: Showca
               </div>
             </div>
 
-            {/* RIGHT GRAPHIC CARD PLACEHOLDER */}
-            <div className="lg:col-span-5 relative flex items-center justify-center p-8 bg-[#080A0B] border border-[#252B2F] rounded-2xl min-h-[320px]">
-              <div className="text-center space-y-4">
-                <div className="w-16 h-16 mx-auto bg-[#15191C] border border-[#F5B800]/40 rounded-full flex items-center justify-center yellow-glow">
-                  <Cpu className="w-8 h-8 text-[#F5B800]" />
+            {/* RIGHT GRAPHIC CARD / REAL IMAGE SHOWCASE */}
+            <div className="lg:col-span-5 relative flex flex-col items-center justify-center p-6 bg-[#080A0B] border border-[#252B2F] rounded-2xl min-h-[360px] overflow-hidden group">
+              <div className="absolute inset-0 bg-radial-gradient from-[#F5B800]/10 via-transparent to-transparent pointer-events-none" />
+
+              {selectedMachine.image ? (
+                <div className="relative w-full h-full flex flex-col items-center justify-center space-y-4">
+                  <div className="relative w-full h-64 flex items-center justify-center">
+                    <img
+                      src={selectedMachine.image}
+                      alt={selectedMachine.name}
+                      className="max-h-full max-w-full object-contain drop-shadow-[0_10px_20px_rgba(245,184,0,0.15)] group-hover:scale-105 transition-transform duration-500"
+                    />
+                  </div>
+                  <div className="text-center space-y-1">
+                    <span className="text-xs font-mono text-[#F5B800] font-bold tracking-widest uppercase block">
+                      FOTOGRAFÍA REAL / EQUIPO OFICIAL
+                    </span>
+                    <p className="text-xs text-[#9BA2A6]">
+                      {selectedMachine.name} en configuración operativa de alto rendimiento.
+                    </p>
+                  </div>
                 </div>
-                <div className="space-y-1">
-                  <span className="text-xs font-mono text-[#F5B800] font-bold tracking-widest uppercase block">
-                    SPECS ARCHITECTURE
-                  </span>
-                  <p className="text-sm text-[#F5F6F3] font-bold">
-                    {selectedMachine.code} HEAVY DUTY
-                  </p>
-                  <span className="text-xs text-[#9BA2A6] block max-w-xs mx-auto">
-                    Preparada para despliegue inmediato en obras de infraestructura civil, minería y energía.
-                  </span>
+              ) : (
+                <div className="text-center space-y-4">
+                  <div className="w-16 h-16 mx-auto bg-[#15191C] border border-[#F5B800]/40 rounded-full flex items-center justify-center yellow-glow">
+                    <Cpu className="w-8 h-8 text-[#F5B800]" />
+                  </div>
+                  <div className="space-y-1">
+                    <span className="text-xs font-mono text-[#F5B800] font-bold tracking-widest uppercase block">
+                      SPECS ARCHITECTURE
+                    </span>
+                    <p className="text-sm text-[#F5F6F3] font-bold">
+                      {selectedMachine.code} HEAVY DUTY
+                    </p>
+                    <span className="text-xs text-[#9BA2A6] block max-w-xs mx-auto">
+                      Preparada para despliegue inmediato en obras de infraestructura civil, minería y energía.
+                    </span>
+                  </div>
                 </div>
-              </div>
+              )}
             </div>
           </div>
         </div>
