@@ -1,7 +1,10 @@
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Space+Grotesk:wght@400;500;600;700&display=swap');
 @import "tailwindcss";
 
 @layer base {
   :root {
+    --font-space-grotesk: 'Space Grotesk', sans-serif;
+    --font-inter: 'Inter', sans-serif;
     --orvexa-black: #080A0B;
     --orvexa-graphite: #15191C;
     --orvexa-dark-gray: #252B2F;
@@ -15,7 +18,7 @@
 body {
   background-color: #080A0B;
   color: #F5F6F3;
-  font-family: var(--font-inter), system-ui, -apple-system, sans-serif;
+  font-family: 'Inter', system-ui, -apple-system, sans-serif;
   overflow-x: hidden;
   selection-background-color: #F5B800;
   selection-color: #080A0B;
@@ -67,7 +70,7 @@ body {
 
 /* Typography Helpers */
 .font-heading {
-  font-family: var(--font-space-grotesk), sans-serif;
+  font-family: 'Space Grotesk', sans-serif;
 }
 
 /* Text stroke effect for cinematic typography */

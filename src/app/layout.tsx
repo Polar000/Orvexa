@@ -1,18 +1,5 @@
 import type { Metadata } from "next";
-import { Space_Grotesk, Inter } from "next/font/google";
 import "./globals.css";
-
-const spaceGrotesk = Space_Grotesk({
-  variable: "--font-space-grotesk",
-  subsets: ["latin"],
-  weight: ["400", "500", "600", "700"],
-});
-
-const inter = Inter({
-  variable: "--font-inter",
-  subsets: ["latin"],
-  weight: ["300", "400", "500", "600", "700"],
-});
 
 export const metadata: Metadata = {
   title: "ORVEXA | Maquinaria Pesada, Construcción e Infraestructura",
@@ -48,7 +35,7 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="es" className={`${spaceGrotesk.variable} ${inter.variable} scroll-smooth`}>
+    <html lang="es" className="scroll-smooth">
       <body className="bg-[#080A0B] text-[#F5F6F3] antialiased selection:bg-[#F5B800] selection:text-[#080A0B]">
         {children}
       </body>
