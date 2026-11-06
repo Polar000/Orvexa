@@ -44,12 +44,19 @@ Deno.serve(async (req) => {
     }
     if (!["admin", "operador", "ayudante"].includes(role)) throw new Error("Rol inválido");
     const email = toEmail(username);
+    // Pase de un solo uso: la base rechaza cualquier cuenta nueva sin él (no hay auto-registro).
+    const { error: passErr } = await service.from("user_creation_passes").upsert({
+      email,
+      expires_at: new Date(Date.now() + 2 * 60 * 1000).toISOString(),
+    });
+    if (passErr) throw new Error(passErr.message);
     const { data, error } = await service.auth.admin.createUser({
       email,
       password,
       email_confirm: true,
       user_metadata: { full_name: fullName, username: username.trim().toLowerCase() },
     });
+    if (error) await service.from("user_creation_passes").delete().eq("email", email);
     if (error) throw new Error(error.message.includes("already") ? "Ese usuario ya existe" : error.message);
     const { error: pErr } = await service
       .from("profiles")

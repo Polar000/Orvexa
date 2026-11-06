@@ -68,7 +68,7 @@ class _LoginScreenState extends State<LoginScreen> {
                   Text(
                     _setup
                         ? 'Primera vez: esta cuenta controlará proyectos, máquinas y personal.'
-                        : 'Usa el usuario que te dio el administrador.',
+                        : 'Usa el usuario y la contraseña que te dio el administrador. Si no tienes, pídeselo.',
                     style: const TextStyle(color: Ox.lightGray),
                   ),
                   const SizedBox(height: 24),

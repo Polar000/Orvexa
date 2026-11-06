@@ -34,6 +34,8 @@ Cómo se calcula el dinero:
 
 Los usuarios entran con un nombre de usuario (ej. `jperez`). Internamente se guarda como `jperez@orvexa.app`.
 
+**No hay auto-registro.** Solo el administrador crea cuentas (Personal → + Usuario). La base de datos rechaza cualquier intento de registrarse por fuera de la app.
+
 ## Compilar
 
 Requisitos: Flutter 3.47+ y Android Studio (Android SDK) o Xcode (iOS).

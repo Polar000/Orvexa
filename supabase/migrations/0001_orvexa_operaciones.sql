@@ -314,3 +314,26 @@ begin
   return new;
 end $$;
 revoke execute on function public.fill_daily_report() from public, anon, authenticated;
+
+-- ---------------------------------------------------------------- sin auto-registro
+-- Solo la función admin-users (llave de servicio) crea cuentas: deja un pase de un solo uso
+-- justo antes de crear el usuario; cualquier registro sin pase se rechaza.
+create table public.user_creation_passes (
+  email text primary key,
+  expires_at timestamptz not null default now() + interval '2 minutes'
+);
+alter table public.user_creation_passes enable row level security; -- sin políticas: inaccesible desde la app
+
+create or replace function public.orvexa_block_signup()
+returns trigger language plpgsql security definer set search_path = public as $$
+begin
+  delete from public.user_creation_passes where expires_at < now();
+  delete from public.user_creation_passes where email = lower(new.email);
+  if not found then
+    raise exception 'El registro está deshabilitado. Pide tu usuario al administrador.';
+  end if;
+  return new;
+end $$;
+revoke execute on function public.orvexa_block_signup() from public, anon, authenticated;
+create trigger orvexa_block_signup before insert on auth.users
+  for each row execute function public.orvexa_block_signup();
