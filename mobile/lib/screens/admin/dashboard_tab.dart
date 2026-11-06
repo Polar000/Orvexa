@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import '../../calc.dart';
 import '../../data.dart';
+import '../../models.dart';
 import '../../theme.dart';
 import '../../widgets.dart';
 import 'admin_shell.dart';
@@ -42,6 +43,7 @@ class DashboardTab extends StatelessWidget {
                   !d.reports.any((r) => r.assignmentId == a.id && dayOnly(r.date) == today))
               .toList();
           final inMaint = d.machines.where((m) => m.status == 'mantenimiento' || m.status == 'fuera_servicio').toList();
+          final monthDown = downtimeSummary(d.reports.where((r) => r.date.year == now.year && r.date.month == now.month));
           final overdue = d.expenses.where((e) => (!e.paid || e.recurrence != 'unica') && dayOnly(e.dueDate).isBefore(today)).toList();
 
           if (d.projects.isEmpty && d.machines.isEmpty) return _onboarding(context, d);
@@ -80,6 +82,20 @@ class DashboardTab extends StatelessWidget {
                 if (overdue.isNotEmpty)
                   _alert(Icons.warning_amber, Ox.red, '${overdue.length} obligación${overdue.length == 1 ? '' : 'es'} vencida${overdue.length == 1 ? '' : 's'}',
                       overdue.map((e) => '${e.description} ${money0(e.amount)}').join(', ')),
+              ],
+              if (monthDown.lines.isNotEmpty) ...[
+                const SectionTitle('Paros del mes'),
+                Card(
+                  child: ListTile(
+                    leading: const Icon(Icons.timer_off_outlined, color: Ox.blue),
+                    title: Text('${numText(monthDown.totalHours)} h perdidas en ${monthDown.totalDays} día${monthDown.totalDays == 1 ? '' : 's'}'),
+                    subtitle: Text([
+                      'Principal: ${downtimeReasonLabels[monthDown.top!.reason]} (${numText(monthDown.top!.hours)} h)',
+                      if (monthDown.clientHours > 0) 'Atribuibles al cliente: ${numText(monthDown.clientHours)} h',
+                    ].join('\n')),
+                    isThreeLine: monthDown.clientHours > 0,
+                  ),
+                ),
               ],
               const SectionTitle('Producción · últimos 14 días'),
               Card(

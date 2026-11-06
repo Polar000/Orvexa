@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import '../../calc.dart';
 import '../../data.dart';
 import '../../models.dart';
+import '../../offline.dart';
 import '../../theme.dart';
 import '../../widgets.dart';
 
@@ -14,6 +15,7 @@ class ReportForm extends StatefulWidget {
   final DailyReport? existing;
   final DateTime? date;
   final bool asAdmin;
+  final Outbox? outbox; // operador: guarda en el teléfono si no hay señal
   const ReportForm({
     super.key,
     required this.assignment,
@@ -23,6 +25,7 @@ class ReportForm extends StatefulWidget {
     this.existing,
     this.date,
     this.asAdmin = false,
+    this.outbox,
   });
   @override
   State<ReportForm> createState() => _ReportFormState();
@@ -35,24 +38,65 @@ class _ReportFormState extends State<ReportForm> {
   late final _notes = TextEditingController(text: widget.existing?.notes ?? '');
   late DateTime _date = widget.existing?.date ?? widget.date ?? DateTime.now();
   late bool _helper = widget.existing?.helperPresent ?? true;
+  late bool _paro = (widget.existing?.downtimeHours ?? 0) > 0;
+  late String? _reason = widget.existing?.downtimeReason;
+  late final _downHours = TextEditingController(text: numText(widget.existing?.downtimeHours == 0 ? null : widget.existing?.downtimeHours));
+  late bool _payDay = widget.existing?.payDay ?? true;
   bool _busy = false;
 
   Future<void> _save() async {
     if (!_form.currentState!.validate()) return;
+    if (_paro && _reason == null) {
+      toast(context, 'Elige el motivo del paro', error: true);
+      return;
+    }
     setState(() => _busy = true);
-    final ok = await guard(
-      context,
-      () => Repo.saveReport(
-        id: widget.existing?.id,
-        assignmentId: widget.assignment.id,
-        date: _date,
-        units: int.tryParse(_units.text) ?? 0,
-        hours: parseNum(_hours.text),
-        helperPresent: widget.assignment.helperId != null && _helper,
-        notes: _notes.text.trim().isEmpty ? null : _notes.text.trim(),
-      ),
-      ok: 'Reporte guardado',
-    );
+    final units = int.tryParse(_units.text) ?? 0;
+    final hours = parseNum(_hours.text);
+    final helper = widget.assignment.helperId != null && _helper;
+    final notes = _notes.text.trim().isEmpty ? null : _notes.text.trim();
+    final downH = _paro ? (parseNum(_downHours.text) ?? 0) : 0.0;
+    final reason = _paro ? _reason : null;
+    var ok = false;
+    if (widget.outbox != null) {
+      // Operador: se guarda en el teléfono primero y se envía si hay señal.
+      try {
+        final sent = await widget.outbox!.saveReport(
+          existing: widget.existing,
+          assignment: widget.assignment,
+          date: _date,
+          units: units,
+          hours: hours,
+          helperPresent: helper,
+          notes: notes,
+          downtimeHours: downH,
+          downtimeReason: reason,
+        );
+        ok = true;
+        if (mounted) {
+          toast(context, sent ? 'Reporte enviado' : 'Sin señal: quedó guardado en el teléfono y se enviará solo');
+        }
+      } catch (e) {
+        if (mounted) toast(context, friendlyError(e), error: true);
+      }
+    } else {
+      ok = await guard(
+        context,
+        () => Repo.saveReport(
+          id: widget.existing?.id,
+          assignmentId: widget.assignment.id,
+          date: _date,
+          units: units,
+          hours: hours,
+          helperPresent: helper,
+          notes: notes,
+          downtimeHours: downH,
+          downtimeReason: reason,
+          payDay: _payDay,
+        ),
+        ok: 'Reporte guardado',
+      );
+    }
     if (!mounted) return;
     setState(() => _busy = false);
     if (ok) Navigator.pop(context, true);
@@ -102,8 +146,9 @@ class _ReportFormState extends State<ReportForm> {
                 validator: (v) {
                   if (!p.perUnit) return null;
                   final n = int.tryParse(v ?? '');
-                  if (n == null) return 'Ingresa un número';
+                  if (n == null) return 'Ingresa un número (0 si no se trabajó)';
                   if (n > 5000) return 'Revisa la cantidad';
+                  if (n == 0 && !_paro) return 'Sin producción: marca abajo el motivo del paro';
                   return null;
                 },
               ),
@@ -131,7 +176,19 @@ class _ReportFormState extends State<ReportForm> {
               ),
             ),
           const SizedBox(height: 12),
-          Field(_notes, 'Observaciones', hint: 'Terreno, clima, paros, fallas…', maxLines: 3),
+          _paroSection(),
+          if (widget.asAdmin)
+            Card(
+              child: SwitchListTile(
+                value: _payDay,
+                activeThumbColor: Ox.yellow,
+                onChanged: (v) => setState(() => _payDay = v),
+                title: const Text('Pagar este día'),
+                subtitle: const Text('Apágalo si el día no se trabajó y no corresponde pago'),
+              ),
+            ),
+          const SizedBox(height: 12),
+          Field(_notes, 'Observaciones', hint: 'Detalles del paro, terreno, fallas…', maxLines: 3),
           const SizedBox(height: 8),
           FilledButton(
             onPressed: _busy ? null : _save,
@@ -141,6 +198,46 @@ class _ReportFormState extends State<ReportForm> {
       ),
     );
   }
+
+  Widget _paroSection() => Card(
+        child: Padding(
+          padding: const EdgeInsets.fromLTRB(4, 4, 4, 12),
+          child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+            SwitchListTile(
+              value: _paro,
+              activeThumbColor: Ox.yellow,
+              onChanged: (v) => setState(() => _paro = v),
+              title: const Text('¿Hubo paro o retraso?'),
+              subtitle: const Text('Lluvia, falla, falta de material, atraso del cliente…'),
+            ),
+            if (_paro) ...[
+              Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 12),
+                child: Wrap(spacing: 8, runSpacing: 8, children: [
+                  for (final e in downtimeReasonLabels.entries)
+                    ChoiceChip(
+                      label: Text(e.value),
+                      selected: _reason == e.key,
+                      selectedColor: Ox.yellow,
+                      labelStyle: TextStyle(color: _reason == e.key ? Ox.black : Ox.white, fontWeight: FontWeight.w600),
+                      onSelected: (_) => setState(() => _reason = e.key),
+                    ),
+                ]),
+              ),
+              const SizedBox(height: 14),
+              Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 12),
+                child: Field(_downHours, 'Horas perdidas', number: true, decimal: true, suffix: 'h', validator: (v) {
+                  final n = parseNum(v ?? '');
+                  if (n == null || n <= 0) return 'Indica cuántas horas se perdieron';
+                  if (n > 24) return 'Máximo 24 h';
+                  return null;
+                }),
+              ),
+            ],
+          ]),
+        ),
+      );
 
   Widget _stepBtn(String label, VoidCallback onTap) => SizedBox(
         width: 64,

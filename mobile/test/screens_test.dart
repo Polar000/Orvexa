@@ -10,6 +10,10 @@ import 'package:intl/date_symbol_data_local.dart';
 import 'package:orvexa_app/calc.dart';
 import 'package:orvexa_app/data.dart';
 import 'package:orvexa_app/models.dart';
+import 'package:orvexa_app/offline.dart';
+import 'package:connectivity_plus/connectivity_plus.dart';
+import 'package:shared_preferences/shared_preferences.dart';
+import 'dart:async';
 import 'package:orvexa_app/screens/admin/admin_shell.dart';
 import 'package:orvexa_app/screens/admin/project_detail.dart';
 import 'package:orvexa_app/screens/operator/operator_home.dart';
@@ -59,8 +63,11 @@ AdminData demo() {
     final d = today.subtract(Duration(days: i));
     if (d.weekday == 7) continue;
     for (final a in assignments.take(2)) {
-      final u = 170 + ((i * 37 + a.id.hashCode) % 60);
-      reports.add(DailyReport(id: '${n++}', assignmentId: a.id, projectId: 'p1', machineId: a.machineId, operatorId: a.operatorId, date: d, units: u, hours: 9, helperPresent: i % 9 != 0, operatorPay: 300, helperPay: i % 9 != 0 ? 180 : 0));
+      final rain = i % 11 == 0;
+      final client = i % 7 == 3 && a.id == 'a1';
+      final u = rain ? 0 : (client ? 120 : 170 + ((i * 37 + a.id.hashCode) % 60));
+      reports.add(DailyReport(id: '${n++}', assignmentId: a.id, projectId: 'p1', machineId: a.machineId, operatorId: a.operatorId, date: d, units: u, hours: rain ? 0 : 9, helperPresent: i % 9 != 0, operatorPay: 300, helperPay: i % 9 != 0 ? 180 : 0,
+          downtimeHours: rain ? 9 : (client ? 3.5 : 0), downtimeReason: rain ? 'lluvia' : (client ? 'falta_material' : null)));
     }
     if (i <= 12) {
       reports.add(DailyReport(id: '${n++}', assignmentId: 'a3', projectId: 'p2', machineId: 'm3', operatorId: 'op3', date: d, units: 0, hours: 8, helperPresent: false, operatorPay: 275, helperPay: 0));
@@ -103,6 +110,7 @@ Widget app(Widget home) => MaterialApp(
 
 void main() {
   setUpAll(() async {
+    SharedPreferences.setMockInitialValues({});
     useGoogleFonts = false;
     await initializeDateFormatting('es');
     const r = '/opt/flutter/bin/cache/artifacts/material_fonts';
@@ -149,7 +157,17 @@ void main() {
           maintenance: d.maintenance,
           people: {'a1': ('Juan Pérez', 'Pedro Gómez')},
         );
-    await t.pumpWidget(app(OperatorHome(me: d.profiles[1], loader: loader)));
+    final outbox = Outbox(
+      sender: (_) async => throw Exception('SocketException: Failed host lookup'),
+      connectivity: StreamController<List<ConnectivityResult>>.broadcast().stream,
+    );
+    await t.runAsync(() async {
+      await outbox.init('op1');
+      await outbox.saveReport(assignment: d.assignments.first, date: DateTime.now(), units: 185, helperPresent: true,
+          downtimeHours: 2, downtimeReason: 'lluvia', notes: 'Lluvia de 1 a 3 pm');
+      await outbox.addMaintenance(machineId: 'm1', projectId: 'p1', date: DateTime.now(), type: 'engrase', description: 'Engrase de torre');
+    });
+    await t.pumpWidget(app(OperatorHome(me: d.profiles[1], loader: loader, outbox: outbox)));
     await t.pumpAndSettle();
     await expectLater(find.byType(MaterialApp), matchesGoldenFile('goldens/operador_1_hoy.png'));
     await t.tap(find.text('Historial'));
@@ -164,7 +182,15 @@ void main() {
       date: DateTime.now(),
     )));
     await t.pumpAndSettle();
-    await t.enterText(find.byType(TextFormField).first, '185');
+    await t.enterText(find.byType(TextFormField).first, '120');
+    await t.pumpAndSettle();
+    await t.tap(find.text('¿Hubo paro o retraso?'));
+    await t.pumpAndSettle();
+    await t.tap(find.text('Falta de material (perfiles)'));
+    await t.pumpAndSettle();
+    await t.enterText(find.widgetWithText(TextFormField, 'Horas perdidas'), '3.5');
+    await t.pumpAndSettle();
+    t.view.physicalSize = const Size(390 * 2, 1250 * 2);
     await t.pumpAndSettle();
     await expectLater(find.byType(MaterialApp), matchesGoldenFile('goldens/operador_3_reporte.png'));
   });

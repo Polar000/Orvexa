@@ -337,3 +337,34 @@ end $$;
 revoke execute on function public.orvexa_block_signup() from public, anon, authenticated;
 create trigger orvexa_block_signup before insert on auth.users
   for each row execute function public.orvexa_block_signup();
+
+-- ---------------------------------------------------------------- paros
+create type public.downtime_reason as enum ('lluvia', 'falla_maquina', 'falta_material', 'cliente', 'terreno', 'combustible', 'otro');
+alter table public.daily_reports
+  add column downtime_hours numeric(4,1) not null default 0 check (downtime_hours between 0 and 24),
+  add column downtime_reason public.downtime_reason,
+  add column pay_day boolean not null default true; -- solo el admin decide si un día sin trabajo se paga
+
+create or replace function public.fill_daily_report()
+returns trigger language plpgsql security definer set search_path = public as $$
+declare a public.assignments;
+begin
+  select * into a from public.assignments where id = new.assignment_id;
+  if a.id is null then raise exception 'Asignación no existe'; end if;
+  new.project_id := a.project_id;
+  new.machine_id := a.machine_id;
+  if not public.is_admin() then
+    new.operator_id := auth.uid();
+    new.pay_day := case when tg_op = 'INSERT' then true else old.pay_day end;
+  end if;
+  if new.downtime_hours = 0 then new.downtime_reason := null; end if;
+  new.operator_pay := case when new.pay_day then a.operator_daily_pay else 0 end;
+  new.helper_pay := case when new.pay_day and a.helper_id is not null and new.helper_present then a.helper_daily_pay else 0 end;
+  if tg_op = 'INSERT' then
+    select usd_to_gtq into new.fx_rate from public.company_settings where id = 1;
+  else
+    new.fx_rate := old.fx_rate;
+  end if;
+  return new;
+end $$;
+revoke execute on function public.fill_daily_report() from public, anon, authenticated;

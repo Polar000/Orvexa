@@ -22,6 +22,19 @@ Monedas: se cobra al cliente en **US$**; se paga a operadores y ayudantes en **q
 
 **Ayudante**: ve su asignación y reportes (no registra producción).
 
+### Paros
+En el reporte diario el operador marca si hubo paro o retraso: motivo (lluvia, falla de la máquina, falta de material, atraso del cliente, terreno, sin combustible, otro) y horas perdidas. Si no hubo producción (0 incas) el motivo es obligatorio.
+- El admin ve en cada proyecto las horas perdidas por motivo y las horas atribuibles al cliente (respaldo para reclamar tiempo o cobro), y en el Panel el resumen del mes.
+- Solo el admin decide si un día sin trabajo se paga (abre el reporte en el proyecto → "Pagar este día").
+
+### Modo sin señal (operador)
+- Reportes y mantenimientos se guardan primero en el teléfono y se envían solos cuando vuelve la señal (al recuperar conexión, cada 60 s, o con "Enviar ahora").
+- Arriba aparece un aviso: "Sin señal · N guardados en el teléfono".
+- Sin señal, la app muestra la última información descargada (proyecto, máquina, meta, historial).
+- Cada registro lleva un id generado en el teléfono: si un envío se corta y se reintenta, no se duplica.
+- Si el servidor rechaza algo (por ejemplo, corregir un reporte de hace más de 2 días), se marca en rojo con opción de reintentar o descartar.
+- Los pendientes quedan guardados por usuario aunque se cierre la app o se cierre sesión.
+
 Cómo se calcula el dinero:
 - Ingreso = incas reportadas × precio por inca (o días reportados × tarifa diaria).
 - Planilla = por cada día reportado, el pago en quetzales del operador + el del ayudante si estuvo presente. El pago y el tipo de cambio se congelan en el reporte (si cambias la tarifa o el tipo de cambio después, el histórico no cambia). En finanzas se convierte a US$.

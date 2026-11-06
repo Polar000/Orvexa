@@ -130,6 +130,7 @@ class ProjectDetail extends StatelessWidget {
                 const SectionTitle('Producción diaria'),
                 Card(child: Padding(padding: const EdgeInsets.fromLTRB(8, 16, 16, 8), child: _dailyChart(reports, p))),
               ],
+              _downtimeCard(context, reports),
               SectionTitle('Máquinas asignadas (${asg.where((a) => a.active).length})'),
               if (asg.isEmpty)
                 const Padding(
@@ -151,6 +152,57 @@ class ProjectDetail extends StatelessWidget {
         );
       },
     );
+  }
+
+  /// Paros del proyecto agrupados por motivo.
+  Widget _downtimeCard(BuildContext context, List<DailyReport> reports) {
+    final sum = downtimeSummary(reports);
+    if (sum.lines.isEmpty) return const SizedBox.shrink();
+    final maxH = sum.lines.first.hours;
+    return Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
+      SectionTitle('Paros · ${numText(sum.totalHours)} h en ${sum.totalDays} día${sum.totalDays == 1 ? '' : 's'}'),
+      Card(
+        child: Padding(
+          padding: const EdgeInsets.all(16),
+          child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+            for (final l in sum.lines) ...[
+              Row(children: [
+                Expanded(child: Text(downtimeReasonLabels[l.reason] ?? l.reason, style: const TextStyle(fontWeight: FontWeight.w600))),
+                Text('${numText(l.hours)} h · ${l.days} día${l.days == 1 ? '' : 's'}',
+                    style: const TextStyle(color: Ox.lightGray, fontSize: 12)),
+              ]),
+              const SizedBox(height: 4),
+              ClipRRect(
+                borderRadius: BorderRadius.circular(4),
+                child: LinearProgressIndicator(
+                  value: maxH == 0 ? 0 : l.hours / maxH,
+                  minHeight: 6,
+                  backgroundColor: Ox.darkGray,
+                  color: l.reason == 'cliente' || l.reason == 'falta_material' ? Ox.blue : Ox.lightGray,
+                ),
+              ),
+              const SizedBox(height: 12),
+            ],
+            if (sum.clientHours > 0)
+              Container(
+                padding: const EdgeInsets.all(10),
+                decoration: BoxDecoration(color: Ox.blue.withValues(alpha: 0.12), borderRadius: BorderRadius.circular(8)),
+                child: Row(children: [
+                  const Icon(Icons.info_outline, color: Ox.blue, size: 18),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: Text(
+                      '${numText(sum.clientHours)} h perdidas por atraso del cliente o falta de material. '
+                      'Te sirve como respaldo para reclamar tiempo o cobro.',
+                      style: const TextStyle(fontSize: 12, color: Ox.blue),
+                    ),
+                  ),
+                ]),
+              ),
+          ]),
+        ),
+      ),
+    ]);
   }
 
   Widget _line(String a, String b, {Color? color}) => Padding(
@@ -324,10 +376,31 @@ class ProjectDetail extends StatelessWidget {
               d.personName(r.operatorId),
               if (r.hours != null) '${numText(r.hours)} h',
               'Planilla ${quetzal(r.labor)}',
+              if (r.hasDowntime) 'paro ${numText(r.downtimeHours)} h (${downtimeReasonLabels[r.downtimeReason] ?? ''})',
+              if (!r.payDay) 'día no pagado',
               if (!r.helperPresent) 'ayudante ausente',
               if ((r.notes ?? '').isNotEmpty) r.notes!,
             ].join(' · ')),
             trailing: Text(number(r.units), style: Theme.of(context).textTheme.titleMedium?.copyWith(color: Ox.yellow)),
+            onTap: () async {
+              final a = d.assignments.where((x) => x.id == r.assignmentId).firstOrNull;
+              final m = d.machineById[r.machineId];
+              if (a == null || m == null) return;
+              final ok = await Navigator.push<bool>(
+                context,
+                MaterialPageRoute(
+                  builder: (_) => ReportForm(
+                    assignment: a,
+                    project: p,
+                    machine: m,
+                    helperName: a.helperId == null ? null : d.personName(a.helperId),
+                    existing: r,
+                    asAdmin: true,
+                  ),
+                ),
+              );
+              if (ok == true) store.reload();
+            },
             onLongPress: () async {
               if (!await confirm(context, 'Eliminar reporte', '¿Eliminar el reporte del ${fecha(r.date)}?')) return;
               if (!context.mounted) return;

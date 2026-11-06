@@ -1,5 +1,6 @@
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'models.dart';
+import 'offline.dart';
 
 SupabaseClient get db => Supabase.instance.client;
 
@@ -45,8 +46,17 @@ class Repo {
   static Future<Profile?> myProfile() async {
     final uid = db.auth.currentUser?.id;
     if (uid == null) return null;
-    final m = await db.from('profiles').select().eq('id', uid).maybeSingle();
-    return m == null ? null : Profile.fromMap(m);
+    try {
+      final m = await db.from('profiles').select().eq('id', uid).maybeSingle();
+      if (m != null) await LocalCache.put('profile_$uid', m);
+      return m == null ? null : Profile.fromMap(m);
+    } catch (e) {
+      // Sin señal: usar el perfil guardado para que el operador pueda seguir trabajando.
+      if (!isNetworkError(e)) rethrow;
+      final c = await LocalCache.get('profile_$uid');
+      if (c == null) rethrow;
+      return Profile.fromMap(Map<String, dynamic>.from(c.$1));
+    }
   }
 
   static Future<bool> needsSetup() async => (await db.rpc('needs_setup')) == true;
@@ -152,41 +162,45 @@ class Repo {
   static Future<void> deleteReport(String id) => db.from('daily_reports').delete().eq('id', id);
 
   // ------------------------------------------------------------ operador
+  /// Datos del operador. Con señal los guarda en el teléfono; sin señal usa la última copia.
   static Future<OperatorData> loadOperator(String uid) async {
+    try {
+      final raw = await _fetchOperatorRaw(uid).timeout(const Duration(seconds: 20));
+      await LocalCache.put('operator_$uid', raw);
+      return OperatorData.fromRaw(raw);
+    } catch (e) {
+      if (!isNetworkError(e)) rethrow;
+      final c = await LocalCache.get('operator_$uid');
+      if (c == null) rethrow;
+      return OperatorData.fromRaw(Map<String, dynamic>.from(c.$1), cachedAt: c.$2);
+    }
+  }
+
+  static Future<Map<String, dynamic>> _fetchOperatorRaw(String uid) async {
     final asg = List<Map<String, dynamic>>.from(await db
         .from('assignments')
         .select()
         .or('operator_id.eq.$uid,helper_id.eq.$uid')
         .order('active', ascending: false)
         .order('start_date', ascending: false));
-    final assignments = asg.map(Assignment.fromMap).toList();
-    final pIds = assignments.map((a) => a.projectId).toSet().toList();
-    final mIds = assignments.map((a) => a.machineId).toSet().toList();
-    final aIds = assignments.map((a) => a.id).toList();
-    if (assignments.isEmpty) {
-      return OperatorData(assignments: [], projects: {}, machines: {}, reports: [], maintenance: [], people: {});
-    }
+    if (asg.isEmpty) return {'assignments': [], 'projects': [], 'machines': [], 'reports': [], 'maintenance': [], 'people': {}};
+    final pIds = asg.map((a) => a['project_id']).toSet().toList();
+    final mIds = asg.map((a) => a['machine_id']).toSet().toList();
+    final aIds = asg.map((a) => a['id'] as String).toList();
     final r = await Future.wait([
       db.from('projects').select().inFilter('id', pIds),
       db.from('machines').select().inFilter('id', mIds),
-      db.from('daily_reports').select().inFilter('assignment_id', aIds).order('report_date', ascending: false),
+      db.from('daily_reports').select().inFilter('assignment_id', aIds).order('report_date', ascending: false).limit(400),
       db.from('maintenance_logs').select().inFilter('machine_id', mIds).order('log_date', ascending: false).limit(60),
       Future.wait(aIds.map((id) => db.rpc('assignment_people', params: {'p_assignment': id}))),
     ]);
     final peopleRows = r[4];
-    final people = <String, (String?, String?)>{};
+    final people = <String, dynamic>{};
     for (var i = 0; i < aIds.length; i++) {
       final rows = peopleRows[i] as List;
-      if (rows.isNotEmpty) people[aIds[i]] = (rows.first['operator_name'] as String?, rows.first['helper_name'] as String?);
+      if (rows.isNotEmpty) people[aIds[i]] = [rows.first['operator_name'], rows.first['helper_name']];
     }
-    return OperatorData(
-      assignments: assignments,
-      projects: {for (final m in List<Map<String, dynamic>>.from(r[0])) m['id'] as String: Project.fromMap(m)},
-      machines: {for (final m in List<Map<String, dynamic>>.from(r[1])) m['id'] as String: Machine.fromMap(m)},
-      reports: List<Map<String, dynamic>>.from(r[2]).map(DailyReport.fromMap).toList(),
-      maintenance: List<Map<String, dynamic>>.from(r[3]).map(MaintenanceLog.fromMap).toList(),
-      people: people,
-    );
+    return {'assignments': asg, 'projects': r[0], 'machines': r[1], 'reports': r[2], 'maintenance': r[3], 'people': people};
   }
 
   static Future<void> saveReport({
@@ -197,8 +211,14 @@ class Repo {
     double? hours,
     required bool helperPresent,
     String? notes,
+    double downtimeHours = 0,
+    String? downtimeReason,
+    bool payDay = true,
   }) async {
     final m = {
+      'downtime_hours': downtimeHours,
+      'downtime_reason': downtimeHours > 0 ? downtimeReason : null,
+      'pay_day': payDay,
       'assignment_id': assignmentId,
       'report_date': dateKey(date),
       'units_done': units,
@@ -257,6 +277,7 @@ class AdminData {
 }
 
 class OperatorData {
+  final DateTime? cachedAt; // si viene de la copia guardada (sin señal)
   final List<Assignment> assignments;
   final Map<String, Project> projects;
   final Map<String, Machine> machines;
@@ -270,5 +291,25 @@ class OperatorData {
     required this.reports,
     required this.maintenance,
     required this.people,
+    this.cachedAt,
   });
+
+  factory OperatorData.fromRaw(Map<String, dynamic> raw, {DateTime? cachedAt}) {
+    List<Map<String, dynamic>> l(String k) =>
+        (raw[k] as List? ?? []).map((e) => Map<String, dynamic>.from(e as Map)).toList();
+    final people = <String, (String?, String?)>{};
+    (raw['people'] as Map? ?? {}).forEach((k, v) {
+      final list = v as List;
+      people[k as String] = (list[0] as String?, list[1] as String?);
+    });
+    return OperatorData(
+      assignments: l('assignments').map(Assignment.fromMap).toList(),
+      projects: {for (final m in l('projects')) m['id'] as String: Project.fromMap(m)},
+      machines: {for (final m in l('machines')) m['id'] as String: Machine.fromMap(m)},
+      reports: l('reports').map((m) => DailyReport.fromMap(m)).toList(),
+      maintenance: l('maintenance').map((m) => MaintenanceLog.fromMap(m)).toList(),
+      people: people,
+      cachedAt: cachedAt,
+    );
+  }
 }

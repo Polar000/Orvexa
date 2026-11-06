@@ -1,13 +1,15 @@
 import 'package:flutter/material.dart';
 import '../../data.dart';
 import '../../models.dart';
+import '../../offline.dart';
 import '../../theme.dart';
 import '../../widgets.dart';
 
 class MaintenanceForm extends StatefulWidget {
   final Machine machine;
   final String? projectId;
-  const MaintenanceForm({super.key, required this.machine, this.projectId});
+  final Outbox? outbox; // operador: guarda en el teléfono si no hay señal
+  const MaintenanceForm({super.key, required this.machine, this.projectId, this.outbox});
   @override
   State<MaintenanceForm> createState() => _MaintenanceFormState();
 }
@@ -24,6 +26,28 @@ class _MaintenanceFormState extends State<MaintenanceForm> {
   Future<void> _save() async {
     if (!_form.currentState!.validate()) return;
     setState(() => _busy = true);
+    if (widget.outbox != null) {
+      var done = false;
+      try {
+        final sent = await widget.outbox!.addMaintenance(
+          machineId: widget.machine.id,
+          projectId: widget.projectId,
+          date: _date,
+          type: _type,
+          description: _desc.text.trim(),
+          hourMeter: parseNum(_hours.text),
+          cost: parseNum(_cost.text) ?? 0,
+        );
+        done = true;
+        if (mounted) toast(context, sent ? 'Mantenimiento registrado' : 'Sin señal: quedó guardado en el teléfono y se enviará solo');
+      } catch (e) {
+        if (mounted) toast(context, friendlyError(e), error: true);
+      }
+      if (!mounted) return;
+      setState(() => _busy = false);
+      if (done) Navigator.pop(context, true);
+      return;
+    }
     final ok = await guard(
       context,
       () => Repo.addMaintenance(

@@ -300,3 +300,35 @@ Map<String, PayrollLine> payroll(List<DailyReport> reports, List<Assignment> ass
   }
   return out;
 }
+
+/// Resumen de paros: horas y días por motivo.
+class DowntimeLine {
+  final String reason;
+  double hours = 0;
+  int days = 0;
+  int zeroDays = 0; // días sin producción
+  DowntimeLine(this.reason);
+}
+
+class DowntimeSummary {
+  final List<DowntimeLine> lines; // ordenado por horas
+  DowntimeSummary(this.lines);
+  double get totalHours => lines.fold(0, (a, l) => a + l.hours);
+  int get totalDays => lines.fold(0, (a, l) => a + l.days);
+  DowntimeLine? get top => lines.isEmpty ? null : lines.first;
+  /// Horas atribuibles al cliente (atraso del cliente o falta de material que él provee).
+  double get clientHours => lines.where((l) => l.reason == 'cliente' || l.reason == 'falta_material').fold(0, (a, l) => a + l.hours);
+}
+
+DowntimeSummary downtimeSummary(Iterable<DailyReport> reports) {
+  final m = <String, DowntimeLine>{};
+  for (final r in reports) {
+    if (!r.hasDowntime) continue;
+    final l = m.putIfAbsent(r.downtimeReason ?? 'otro', () => DowntimeLine(r.downtimeReason ?? 'otro'));
+    l.hours += r.downtimeHours;
+    l.days++;
+    if (r.units == 0) l.zeroDays++;
+  }
+  final lines = m.values.toList()..sort((a, b) => b.hours.compareTo(a.hours));
+  return DowntimeSummary(lines);
+}

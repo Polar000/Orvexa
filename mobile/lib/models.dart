@@ -176,6 +176,16 @@ class Assignment {
       );
 }
 
+const downtimeReasonLabels = {
+  'lluvia': 'Lluvia / clima',
+  'falla_maquina': 'Falla de la máquina',
+  'falta_material': 'Falta de material (perfiles)',
+  'cliente': 'Atraso del cliente',
+  'terreno': 'Terreno (roca, lodo)',
+  'combustible': 'Sin combustible',
+  'otro': 'Otro',
+};
+
 class DailyReport {
   final String id;
   final String assignmentId;
@@ -190,6 +200,10 @@ class DailyReport {
   final double operatorPay; // Q
   final double helperPay; // Q
   final double fxRate; // Q por US$ del día del reporte
+  final double downtimeHours;
+  final String? downtimeReason;
+  final bool payDay;
+  final bool pending; // guardado en el teléfono, falta enviarlo
   DailyReport({
     required this.id,
     required this.assignmentId,
@@ -204,14 +218,19 @@ class DailyReport {
     required this.operatorPay,
     required this.helperPay,
     this.fxRate = 7.64,
+    this.downtimeHours = 0,
+    this.downtimeReason,
+    this.payDay = true,
+    this.pending = false,
   });
   double get labor => operatorPay + helperPay; // Q
   double get laborUsd => labor / (fxRate <= 0 ? 1 : fxRate);
-  factory DailyReport.fromMap(Map<String, dynamic> m) => DailyReport(
+  bool get hasDowntime => downtimeHours > 0;
+  factory DailyReport.fromMap(Map<String, dynamic> m, {bool pending = false}) => DailyReport(
         id: m['id'],
         assignmentId: m['assignment_id'],
-        projectId: m['project_id'],
-        machineId: m['machine_id'],
+        projectId: m['project_id'] ?? '',
+        machineId: m['machine_id'] ?? '',
         operatorId: m['operator_id'],
         date: _date(m['report_date']) ?? DateTime.now(),
         units: _i(m['units_done']),
@@ -221,6 +240,10 @@ class DailyReport {
         operatorPay: _d(m['operator_pay']),
         helperPay: _d(m['helper_pay']),
         fxRate: m['fx_rate'] == null ? 7.64 : _d(m['fx_rate']),
+        downtimeHours: _d(m['downtime_hours']),
+        downtimeReason: m['downtime_reason'],
+        payDay: m['pay_day'] != false,
+        pending: pending,
       );
 }
 
@@ -244,6 +267,7 @@ class MaintenanceLog {
   final String description;
   final double? hourMeter;
   final double cost;
+  final bool pending;
   MaintenanceLog({
     required this.id,
     required this.machineId,
@@ -254,8 +278,9 @@ class MaintenanceLog {
     required this.description,
     this.hourMeter,
     required this.cost,
+    this.pending = false,
   });
-  factory MaintenanceLog.fromMap(Map<String, dynamic> m) => MaintenanceLog(
+  factory MaintenanceLog.fromMap(Map<String, dynamic> m, {bool pending = false}) => MaintenanceLog(
         id: m['id'],
         machineId: m['machine_id'],
         projectId: m['project_id'],
@@ -265,6 +290,7 @@ class MaintenanceLog {
         description: m['description'] ?? '',
         hourMeter: m['hour_meter'] == null ? null : _d(m['hour_meter']),
         cost: _d(m['cost']),
+        pending: pending,
       );
 }
 
