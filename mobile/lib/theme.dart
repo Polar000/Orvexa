@@ -104,7 +104,12 @@ final _money0 = NumberFormat.currency(locale: 'en_US', symbol: r'$', decimalDigi
 final _compact = NumberFormat.compactCurrency(locale: 'en_US', symbol: r'$');
 final _num = NumberFormat.decimalPattern('en_US');
 
+final _q = NumberFormat.currency(locale: 'en_US', symbol: 'Q', decimalDigits: 2);
+final _q0 = NumberFormat.currency(locale: 'en_US', symbol: 'Q', decimalDigits: 0);
+
 String money(num v) => _money.format(v);
+String quetzal(num v) => _q.format(v);
+String quetzal0(num v) => _q0.format(v);
 String money0(num v) => _money0.format(v);
 String moneyShort(num v) => v.abs() >= 10000 ? _compact.format(v) : _money0.format(v);
 String number(num v) => _num.format(v);

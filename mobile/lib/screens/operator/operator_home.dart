@@ -177,7 +177,7 @@ class _OperatorHomeState extends State<OperatorHome> {
           _infoRow(Icons.person_outline, 'Operador', people?.$1 ?? '—'),
           if (m.needsHelper) _infoRow(Icons.group_outlined, 'Ayudante', people?.$2 ?? 'Sin asignar'),
           if (target > 0) _infoRow(Icons.flag_outlined, 'Meta diaria', '${number(target)} ${p.unitName}'),
-          _infoRow(Icons.payments_outlined, 'Tu pago por día', money(myPay)),
+          _infoRow(Icons.payments_outlined, 'Tu pago por día', quetzal(myPay)),
           const Divider(height: 28),
           Row(children: [
             Expanded(child: _mini('Hoy', todayReport == null ? '—' : number(todayReport.units))),
@@ -196,7 +196,7 @@ class _OperatorHomeState extends State<OperatorHome> {
             ),
           ],
           const SizedBox(height: 6),
-          Text('Ganado esta semana: ${money(weekPay)}', style: const TextStyle(fontSize: 12, color: Ox.lightGray)),
+          Text('Ganado esta semana: ${quetzal(weekPay)}', style: const TextStyle(fontSize: 12, color: Ox.lightGray)),
           const SizedBox(height: 16),
           if (_canReport(a))
             FilledButton.icon(

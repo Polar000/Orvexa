@@ -40,10 +40,11 @@ class ProjectStats {
   final int unitsDone;
   final int reportDays;
   final double revenue;
-  final double labor;
+  final double labor; // US$ (convertido al tipo de cambio de cada reporte)
+  final double laborGtq; // Q pagados
   final double maintenance;
   final double recentPace; // promedio diario de los últimos 7 días con reporte
-  final double activeDailyLabor; // costo diario de las asignaciones activas
+  final double activeDailyLabor; // US$ por día de las asignaciones activas
   final int activeMachines;
 
   ProjectStats({
@@ -52,6 +53,7 @@ class ProjectStats {
     required this.reportDays,
     required this.revenue,
     required this.labor,
+    this.laborGtq = 0,
     required this.maintenance,
     required this.recentPace,
     required this.activeDailyLabor,
@@ -98,12 +100,14 @@ ProjectStats projectStats(
   Project p,
   List<DailyReport> reports,
   List<Assignment> assignments,
-  List<MaintenanceLog> maintenance,
-) {
+  List<MaintenanceLog> maintenance, {
+  double usdToGtq = 7.64,
+}) {
   final rs = reports.where((r) => r.projectId == p.id).toList();
   final units = rs.fold<int>(0, (a, r) => a + r.units);
   final revenue = rs.fold<double>(0, (a, r) => a + reportRevenue(r, p));
-  final labor = rs.fold<double>(0, (a, r) => a + r.labor);
+  final labor = rs.fold<double>(0, (a, r) => a + r.laborUsd);
+  final laborGtq = rs.fold<double>(0, (a, r) => a + r.labor);
   final maint = maintenance.where((m) => m.projectId == p.id).fold<double>(0, (a, m) => a + m.cost);
 
   // Ritmo reciente: unidades por día calendario en los últimos 7 días distintos con reporte.
@@ -122,9 +126,10 @@ ProjectStats projectStats(
     reportDays: byDay.length,
     revenue: revenue,
     labor: labor,
+    laborGtq: laborGtq,
     maintenance: maint,
     recentPace: pace,
-    activeDailyLabor: active.fold<double>(0, (a, x) => a + x.dailyLabor),
+    activeDailyLabor: active.fold<double>(0, (a, x) => a + x.dailyLabor) / (usdToGtq <= 0 ? 1 : usdToGtq),
     activeMachines: active.length,
   );
 }
@@ -196,7 +201,7 @@ MonthFinance actualMonth(
   for (final r in rs) {
     final p = byId[r.projectId];
     if (p != null) revenue += reportRevenue(r, p);
-    labor += r.labor;
+    labor += r.laborUsd;
   }
   labor *= 1 + s.employerSocialPct / 100;
   final maint = maintenance.where((m) => _sameMonth(m.date, month)).fold<double>(0, (a, m) => a + m.cost);
@@ -266,7 +271,7 @@ List<MonthFinance> projectMonths(
   return out;
 }
 
-/// Planilla por persona en un rango: días trabajados y monto.
+/// Planilla por persona en un rango: días trabajados y monto en quetzales.
 class PayrollLine {
   final String personId;
   int days = 0;

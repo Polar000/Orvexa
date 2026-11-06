@@ -39,7 +39,7 @@ class PeopleTab extends StatelessWidget {
                     leading: const Icon(Icons.payments_outlined, color: Ox.yellow),
                     title: Text('Planilla de ${mesLargo(now).toLowerCase()}'),
                     subtitle: const Text('Según días reportados'),
-                    trailing: Text(money(totalPay), style: Theme.of(context).textTheme.titleMedium?.copyWith(color: Ox.yellow)),
+                    trailing: Text(quetzal(totalPay), style: Theme.of(context).textTheme.titleMedium?.copyWith(color: Ox.yellow)),
                   ),
                 ),
                 for (final g in groups.entries)
@@ -74,7 +74,7 @@ class PeopleTab extends StatelessWidget {
           trailing: pay == null
               ? null
               : Column(mainAxisAlignment: MainAxisAlignment.center, crossAxisAlignment: CrossAxisAlignment.end, children: [
-                  Text(money0(pay.amount), style: const TextStyle(fontWeight: FontWeight.w700)),
+                  Text(quetzal0(pay.amount), style: const TextStyle(fontWeight: FontWeight.w700)),
                   Text('${pay.days} días', style: const TextStyle(fontSize: 11, color: Ox.lightGray)),
                 ]),
         ),

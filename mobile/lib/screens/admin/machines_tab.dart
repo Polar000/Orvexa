@@ -150,14 +150,14 @@ class _MachineFormState extends State<MachineForm> {
               items: machineStatusLabels,
               onChanged: (v) => setState(() => _status = v ?? _status),
             ),
-            const SectionTitle('Pago diario sugerido (US\$)'),
+            const SectionTitle('Pago diario sugerido (quetzales)'),
             const Padding(
               padding: EdgeInsets.only(bottom: 12, left: 4),
               child: Text('Se usa por defecto al asignar la máquina; se puede cambiar en cada asignación.',
                   style: TextStyle(color: Ox.lightGray, fontSize: 12)),
             ),
-            Field(_op, 'Operador por día', number: true, decimal: true, prefix: r'$ '),
-            if (_type == 'hincadora') Field(_hp, 'Ayudante por día', number: true, decimal: true, prefix: r'$ '),
+            Field(_op, 'Operador por día', number: true, decimal: true, prefix: 'Q '),
+            if (_type == 'hincadora') Field(_hp, 'Ayudante por día', number: true, decimal: true, prefix: 'Q '),
             Field(_hours, 'Horómetro actual', number: true, decimal: true, suffix: 'h'),
             Field(_notes, 'Notas', maxLines: 3),
             FilledButton(
@@ -218,8 +218,8 @@ class MachineDetail extends StatelessWidget {
               KpiGrid([
                 Kpi(label: 'Producción total', value: number(units), sub: '${reports.length} días reportados', icon: Icons.bar_chart),
                 Kpi(label: 'Horómetro', value: m.hourMeter == null ? '—' : '${numText(m.hourMeter)} h', icon: Icons.speed),
-                Kpi(label: 'Pago operador / día', value: money(m.operatorDailyPay), icon: Icons.person_outline),
-                if (m.needsHelper) Kpi(label: 'Pago ayudante / día', value: money(m.helperDailyPay), icon: Icons.group_outlined),
+                Kpi(label: 'Pago operador / día', value: quetzal(m.operatorDailyPay), icon: Icons.person_outline),
+                if (m.needsHelper) Kpi(label: 'Pago ayudante / día', value: quetzal(m.helperDailyPay), icon: Icons.group_outlined),
                 Kpi(label: 'Gasto mantenimiento', value: moneyShort(maintCost), icon: Icons.build_outlined),
               ]),
               const SectionTitle('Asignación actual'),

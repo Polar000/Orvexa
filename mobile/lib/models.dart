@@ -160,7 +160,7 @@ class Assignment {
     required this.active,
   });
   int targetFor(Project p) => dailyTarget ?? p.dailyTarget;
-  double get dailyLabor => operatorDailyPay + (helperId != null ? helperDailyPay : 0);
+  double get dailyLabor => operatorDailyPay + (helperId != null ? helperDailyPay : 0); // Q
   factory Assignment.fromMap(Map<String, dynamic> m) => Assignment(
         id: m['id'],
         projectId: m['project_id'],
@@ -187,8 +187,9 @@ class DailyReport {
   final double? hours;
   final bool helperPresent;
   final String? notes;
-  final double operatorPay;
-  final double helperPay;
+  final double operatorPay; // Q
+  final double helperPay; // Q
+  final double fxRate; // Q por US$ del día del reporte
   DailyReport({
     required this.id,
     required this.assignmentId,
@@ -202,8 +203,10 @@ class DailyReport {
     this.notes,
     required this.operatorPay,
     required this.helperPay,
+    this.fxRate = 7.64,
   });
-  double get labor => operatorPay + helperPay;
+  double get labor => operatorPay + helperPay; // Q
+  double get laborUsd => labor / (fxRate <= 0 ? 1 : fxRate);
   factory DailyReport.fromMap(Map<String, dynamic> m) => DailyReport(
         id: m['id'],
         assignmentId: m['assignment_id'],
@@ -217,6 +220,7 @@ class DailyReport {
         notes: m['notes'],
         operatorPay: _d(m['operator_pay']),
         helperPay: _d(m['helper_pay']),
+        fxRate: m['fx_rate'] == null ? 7.64 : _d(m['fx_rate']),
       );
 }
 
@@ -311,9 +315,12 @@ class Expense {
 class CompanySettings {
   final double incomeTaxPct;
   final double employerSocialPct;
-  CompanySettings({required this.incomeTaxPct, required this.employerSocialPct});
+  final double usdToGtq; // tipo de cambio actual
+  CompanySettings({required this.incomeTaxPct, required this.employerSocialPct, this.usdToGtq = 7.64});
+  double toUsd(double gtq) => gtq / (usdToGtq <= 0 ? 1 : usdToGtq);
   factory CompanySettings.fromMap(Map<String, dynamic>? m) => CompanySettings(
         incomeTaxPct: _d(m?['income_tax_pct'] ?? 5),
         employerSocialPct: _d(m?['employer_social_pct'] ?? 0),
+        usdToGtq: _d(m?['usd_to_gtq'] ?? 7.64),
       );
 }

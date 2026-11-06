@@ -20,7 +20,7 @@ class DashboardTab extends StatelessWidget {
           final today = dayOnly(now);
           final month = DateTime(now.year, now.month, 1);
           final active = d.projects.where((p) => p.status == 'activo').toList();
-          final stats = d.projects.map((p) => projectStats(p, d.reports, d.assignments, d.maintenance)).toList();
+          final stats = d.projects.map((p) => projectStats(p, d.reports, d.assignments, d.maintenance, usdToGtq: d.settings.usdToGtq)).toList();
           final unitsToday = d.reports.where((r) => dayOnly(r.date) == today).fold<int>(0, (s, r) => s + r.units);
           final targetToday = active.where((p) => isWorkDay(today, p.workDaysPerWeek)).fold<int>(0, (s, p) => s + p.dailyTarget);
           final unitsMonth = d.reports

@@ -22,7 +22,7 @@ class ProjectDetail extends StatelessWidget {
       builder: (context, d) {
         final p = d.projectById[projectId];
         if (p == null) return const Scaffold(body: EmptyState(icon: Icons.delete_outline, title: 'Proyecto eliminado'));
-        final st = projectStats(p, d.reports, d.assignments, d.maintenance);
+        final st = projectStats(p, d.reports, d.assignments, d.maintenance, usdToGtq: d.settings.usdToGtq);
         final asg = d.assignments.where((a) => a.projectId == p.id).toList();
         final reports = d.reports.where((r) => r.projectId == p.id).toList();
         final today = DateTime.now();
@@ -110,7 +110,7 @@ class ProjectDetail extends StatelessWidget {
               KpiGrid([
                 Kpi(label: 'Valor contrato', value: moneyShort(st.contractValue), icon: Icons.description_outlined),
                 Kpi(label: 'Facturable a la fecha', value: moneyShort(st.revenue), color: Ox.yellow, icon: Icons.trending_up),
-                Kpi(label: 'Planilla pagada', value: moneyShort(st.labor), icon: Icons.groups_outlined),
+                Kpi(label: 'Planilla pagada', value: moneyShort(st.labor), sub: quetzal0(st.laborGtq), icon: Icons.groups_outlined),
                 Kpi(label: 'Mantenimiento', value: moneyShort(st.maintenance), icon: Icons.build_outlined),
                 Kpi(
                   label: 'Utilidad a la fecha',
@@ -258,9 +258,9 @@ class ProjectDetail extends StatelessWidget {
               StatusChip(a.active ? 'Activa' : 'Finalizada', a.active ? Ox.green : Ox.lightGray),
             ]),
             const SizedBox(height: 8),
-            Text('Operador: ${d.personName(a.operatorId)} · ${money(a.operatorDailyPay)}/día'),
+            Text('Operador: ${d.personName(a.operatorId)} · ${quetzal(a.operatorDailyPay)}/día'),
             if (a.targetFor(p) > 0) Text('Meta: ${number(a.targetFor(p))} ${p.unitName}/día'),
-            if (a.helperId != null) Text('Ayudante: ${d.personName(a.helperId)} · ${money(a.helperDailyPay)}/día'),
+            if (a.helperId != null) Text('Ayudante: ${d.personName(a.helperId)} · ${quetzal(a.helperDailyPay)}/día'),
             Text('Desde ${fecha(a.startDate)}${a.endDate != null ? ' hasta ${fecha(a.endDate)}' : ''}',
                 style: const TextStyle(color: Ox.lightGray, fontSize: 12)),
             if (a.active) ...[
@@ -323,7 +323,7 @@ class ProjectDetail extends StatelessWidget {
             subtitle: Text([
               d.personName(r.operatorId),
               if (r.hours != null) '${numText(r.hours)} h',
-              'Planilla ${money(r.labor)}',
+              'Planilla ${quetzal(r.labor)}',
               if (!r.helperPresent) 'ayudante ausente',
               if ((r.notes ?? '').isNotEmpty) r.notes!,
             ].join(' · ')),

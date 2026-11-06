@@ -289,3 +289,28 @@ alter table public.expenses add column start_date date not null default current_
 
 -- Meta diaria de cada máquina en el proyecto (si es null se usa la del proyecto)
 alter table public.assignments add column daily_target integer check (daily_target is null or daily_target >= 0);
+
+-- ---------------------------------------------------------------- pagos en quetzales
+-- Pagos a operadores/ayudantes en quetzales (GTQ); ingresos en US$.
+alter table public.company_settings add column usd_to_gtq numeric(8,4) not null default 7.64 check (usd_to_gtq > 0);
+alter table public.daily_reports add column fx_rate numeric(8,4) not null default 7.64;
+
+create or replace function public.fill_daily_report()
+returns trigger language plpgsql security definer set search_path = public as $$
+declare a public.assignments;
+begin
+  select * into a from public.assignments where id = new.assignment_id;
+  if a.id is null then raise exception 'Asignación no existe'; end if;
+  new.project_id := a.project_id;
+  new.machine_id := a.machine_id;
+  if not public.is_admin() then new.operator_id := auth.uid(); end if;
+  new.operator_pay := a.operator_daily_pay;
+  new.helper_pay := case when a.helper_id is not null and new.helper_present then a.helper_daily_pay else 0 end;
+  if tg_op = 'INSERT' then
+    select usd_to_gtq into new.fx_rate from public.company_settings where id = 1;
+  else
+    new.fx_rate := old.fx_rate;
+  end if;
+  return new;
+end $$;
+revoke execute on function public.fill_daily_report() from public, anon, authenticated;

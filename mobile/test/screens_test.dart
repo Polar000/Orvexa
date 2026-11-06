@@ -38,10 +38,10 @@ AdminData demo() {
     _p('ay2', 'Luis Hernández', UserRole.ayudante),
   ];
   final machines = [
-    Machine(id: 'm1', name: 'Hincadora HWL600R #1', code: 'HWL-01', type: 'hincadora', status: 'en_proyecto', operatorDailyPay: 40, helperDailyPay: 25, hourMeter: 1250),
-    Machine(id: 'm2', name: 'Hincadora HWL600R #2', code: 'HWL-02', type: 'hincadora', status: 'en_proyecto', operatorDailyPay: 40, helperDailyPay: 25),
-    Machine(id: 'm3', name: 'Bobcat S650', code: 'BC-01', type: 'bobcat', status: 'en_proyecto', operatorDailyPay: 35, helperDailyPay: 0),
-    Machine(id: 'm4', name: 'Hincadora PD-10', type: 'hincadora', status: 'mantenimiento', operatorDailyPay: 38, helperDailyPay: 22),
+    Machine(id: 'm1', name: 'Hincadora HWL600R #1', code: 'HWL-01', type: 'hincadora', status: 'en_proyecto', operatorDailyPay: 300, helperDailyPay: 180, hourMeter: 1250),
+    Machine(id: 'm2', name: 'Hincadora HWL600R #2', code: 'HWL-02', type: 'hincadora', status: 'en_proyecto', operatorDailyPay: 300, helperDailyPay: 180),
+    Machine(id: 'm3', name: 'Bobcat S650', code: 'BC-01', type: 'bobcat', status: 'en_proyecto', operatorDailyPay: 275, helperDailyPay: 0),
+    Machine(id: 'm4', name: 'Hincadora PD-10', type: 'hincadora', status: 'mantenimiento', operatorDailyPay: 280, helperDailyPay: 170),
   ];
   final projects = [
     Project(id: 'p1', name: 'Parque Solar Escuintla F2', client: 'SolarGT S.A.', location: 'Masagua, Escuintla', type: 'hincado', status: 'activo', billingMode: 'por_unidad', totalUnits: 24000, dailyTarget: 400, pricePerUnit: 18.5, dailyRate: 0, startDate: today.subtract(const Duration(days: 40)), workDaysPerWeek: 6),
@@ -49,9 +49,9 @@ AdminData demo() {
     Project(id: 'p3', name: 'Solar Jutiapa 30MW', client: 'Energía Verde', type: 'hincado', status: 'planificado', billingMode: 'por_unidad', totalUnits: 15000, dailyTarget: 200, pricePerUnit: 22, dailyRate: 0, startDate: today.add(const Duration(days: 20)), workDaysPerWeek: 6),
   ];
   final assignments = [
-    Assignment(id: 'a1', projectId: 'p1', machineId: 'm1', operatorId: 'op1', helperId: 'ay1', operatorDailyPay: 40, helperDailyPay: 25, dailyTarget: 200, startDate: projects[0].startDate!, active: true),
-    Assignment(id: 'a2', projectId: 'p1', machineId: 'm2', operatorId: 'op2', helperId: 'ay2', operatorDailyPay: 40, helperDailyPay: 25, dailyTarget: 200, startDate: projects[0].startDate!, active: true),
-    Assignment(id: 'a3', projectId: 'p2', machineId: 'm3', operatorId: 'op3', operatorDailyPay: 35, helperDailyPay: 0, startDate: projects[1].startDate!, active: true),
+    Assignment(id: 'a1', projectId: 'p1', machineId: 'm1', operatorId: 'op1', helperId: 'ay1', operatorDailyPay: 300, helperDailyPay: 180, dailyTarget: 200, startDate: projects[0].startDate!, active: true),
+    Assignment(id: 'a2', projectId: 'p1', machineId: 'm2', operatorId: 'op2', helperId: 'ay2', operatorDailyPay: 300, helperDailyPay: 180, dailyTarget: 200, startDate: projects[0].startDate!, active: true),
+    Assignment(id: 'a3', projectId: 'p2', machineId: 'm3', operatorId: 'op3', operatorDailyPay: 275, helperDailyPay: 0, startDate: projects[1].startDate!, active: true),
   ];
   final reports = <DailyReport>[];
   var n = 0;
@@ -60,13 +60,13 @@ AdminData demo() {
     if (d.weekday == 7) continue;
     for (final a in assignments.take(2)) {
       final u = 170 + ((i * 37 + a.id.hashCode) % 60);
-      reports.add(DailyReport(id: '${n++}', assignmentId: a.id, projectId: 'p1', machineId: a.machineId, operatorId: a.operatorId, date: d, units: u, hours: 9, helperPresent: i % 9 != 0, operatorPay: 40, helperPay: i % 9 != 0 ? 25 : 0));
+      reports.add(DailyReport(id: '${n++}', assignmentId: a.id, projectId: 'p1', machineId: a.machineId, operatorId: a.operatorId, date: d, units: u, hours: 9, helperPresent: i % 9 != 0, operatorPay: 300, helperPay: i % 9 != 0 ? 180 : 0));
     }
     if (i <= 12) {
-      reports.add(DailyReport(id: '${n++}', assignmentId: 'a3', projectId: 'p2', machineId: 'm3', operatorId: 'op3', date: d, units: 0, hours: 8, helperPresent: false, operatorPay: 35, helperPay: 0));
+      reports.add(DailyReport(id: '${n++}', assignmentId: 'a3', projectId: 'p2', machineId: 'm3', operatorId: 'op3', date: d, units: 0, hours: 8, helperPresent: false, operatorPay: 275, helperPay: 0));
     }
   }
-  reports.add(DailyReport(id: '${n++}', assignmentId: 'a1', projectId: 'p1', machineId: 'm1', operatorId: 'op1', date: today, units: 215, hours: 9, helperPresent: true, operatorPay: 40, helperPay: 25, notes: 'Terreno duro en fila 14'));
+  reports.add(DailyReport(id: '${n++}', assignmentId: 'a1', projectId: 'p1', machineId: 'm1', operatorId: 'op1', date: today, units: 215, hours: 9, helperPresent: true, operatorPay: 300, helperPay: 180, notes: 'Terreno duro en fila 14'));
   final expenses = [
     Expense(id: 'e1', category: 'renta', description: 'Renta de bodega', amount: 1200, recurrence: 'mensual', dueDate: DateTime(today.year, today.month + 1, 5), startDate: DateTime(2026, 1, 5), paid: false),
     Expense(id: 'e2', category: 'seguro', description: 'Seguro de flota', amount: 650, recurrence: 'mensual', dueDate: today.subtract(const Duration(days: 2)), startDate: DateTime(2026, 1, 1), paid: false),
@@ -84,7 +84,7 @@ AdminData demo() {
     reports: reports,
     maintenance: maint,
     expenses: expenses,
-    settings: CompanySettings(incomeTaxPct: 5, employerSocialPct: 12.67),
+    settings: CompanySettings(incomeTaxPct: 5, employerSocialPct: 12.67, usdToGtq: 7.64),
   );
 }
 

@@ -76,7 +76,7 @@ class ProjectCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final p = project;
-    final st = projectStats(p, data.reports, data.assignments, data.maintenance);
+    final st = projectStats(p, data.reports, data.assignments, data.maintenance, usdToGtq: data.settings.usdToGtq);
     final end = st.estimatedEnd(DateTime.now());
     final machines = data.assignments.where((a) => a.projectId == p.id && a.active).length;
     return Card(

@@ -29,7 +29,7 @@ Assignment asg({String id = 'a1', bool helper = true}) => Assignment(
       active: true,
     );
 
-DailyReport rep(DateTime d, int units, {bool helper = true}) => DailyReport(
+DailyReport rep(DateTime d, int units, {bool helper = true, double fx = 1}) => DailyReport(
       id: '${d.day}',
       assignmentId: 'a1',
       projectId: 'p1',
@@ -40,6 +40,7 @@ DailyReport rep(DateTime d, int units, {bool helper = true}) => DailyReport(
       helperPresent: helper,
       operatorPay: 40,
       helperPay: helper ? 25 : 0,
+      fxRate: fx,
     );
 
 Expense exp(String rec, DateTime due, {double amount = 100, String cat = 'renta', DateTime? start}) => Expense(
@@ -63,7 +64,7 @@ void main() {
   });
 
   test('10,000 incas a 200/día = 50 días, contrato a \$20 = \$200,000', () {
-    final st = projectStats(proj(), [], [asg()], []);
+    final st = projectStats(proj(), [], [asg()], [], usdToGtq: 1);
     expect(st.plannedDaysTotal, 50);
     expect(st.contractValue, 200000);
     // 50 días laborales de lun-sáb desde lun 2 nov
@@ -76,7 +77,7 @@ void main() {
       rep(DateTime(2026, 11, 3), 210),
       rep(DateTime(2026, 11, 4), 210, helper: false),
     ];
-    final st = projectStats(proj(), reports, [asg()], []);
+    final st = projectStats(proj(), reports, [asg()], [], usdToGtq: 1);
     expect(st.unitsDone, 600);
     expect(st.revenue, 600 * 20);
     expect(st.labor, 40 + 25 + 40 + 25 + 40); // ayudante faltó el 4
@@ -130,7 +131,7 @@ void main() {
   test('proyección se detiene al completar las incas', () {
     final s = CompanySettings(incomeTaxPct: 0, employerSocialPct: 0);
     final p = proj(total: 2000, target: 200, start: DateTime(2026, 11, 9));
-    final st = projectStats(p, [], [asg()], []);
+    final st = projectStats(p, [], [asg()], [], usdToGtq: 1);
     final months = projectMonths(DateTime(2026, 11, 6), 3, [st], [], s);
     final totalRevenue = months.fold<double>(0, (a, m) => a + m.revenue);
     expect(totalRevenue, 2000 * 20);
@@ -149,5 +150,21 @@ void main() {
     expect(lines['op1']!.amount, 80);
     expect(lines['h1']!.days, 1);
     expect(lines['h1']!.amount, 25);
+  });
+
+  test('planilla en quetzales se convierte a dólares con el tipo de cambio del reporte', () {
+    // Operador Q300 + ayudante Q182 = Q482 a 7.64 → $63.09
+    final r = DailyReport(id: 'r', assignmentId: 'a1', projectId: 'p1', machineId: 'm1', date: DateTime(2026, 11, 2),
+        units: 200, helperPresent: true, operatorPay: 300, helperPay: 182, fxRate: 7.64);
+    expect(r.labor, 482);
+    expect(r.laborUsd, closeTo(63.089, 0.001));
+    final a = Assignment(id: 'a1', projectId: 'p1', machineId: 'm1', operatorId: 'op1', helperId: 'h1',
+        operatorDailyPay: 300, helperDailyPay: 182, startDate: DateTime(2026, 11, 2), active: true);
+    final st = projectStats(proj(), [r], [a], [], usdToGtq: 7.64);
+    expect(st.labor, closeTo(63.089, 0.001));
+    expect(st.laborGtq, 482);
+    expect(st.activeDailyLabor, closeTo(63.089, 0.001));
+    final m = actualMonth(DateTime(2026, 11, 1), [proj()], [r], [], [], CompanySettings(incomeTaxPct: 0, employerSocialPct: 0, usdToGtq: 8));
+    expect(m.labor, closeTo(63.089, 0.001)); // usa el tipo de cambio guardado en el reporte, no el actual
   });
 }

@@ -1,7 +1,8 @@
 # ORVEXA Operaciones (app móvil)
 
 App Flutter (Android / iOS) para administrar proyectos de hincado y bobcat, máquinas, operadores y finanzas.
-Backend: Supabase, proyecto **Orvexa Projects** (`bvdidntnbimcpozhfkpl`). Moneda: US$.
+Backend: Supabase, proyecto **Orvexa Projects** (`bvdidntnbimcpozhfkpl`).
+Monedas: se cobra al cliente en **US$**; se paga a operadores y ayudantes en **quetzales (Q)**. El tipo de cambio se edita en Finanzas y queda guardado en cada reporte diario.
 
 ## Roles
 
@@ -23,7 +24,7 @@ Backend: Supabase, proyecto **Orvexa Projects** (`bvdidntnbimcpozhfkpl`). Moneda
 
 Cómo se calcula el dinero:
 - Ingreso = incas reportadas × precio por inca (o días reportados × tarifa diaria).
-- Planilla = por cada día reportado, el pago del operador + el del ayudante si estuvo presente. El pago se congela en el reporte (si cambias la tarifa después, el histórico no cambia).
+- Planilla = por cada día reportado, el pago en quetzales del operador + el del ayudante si estuvo presente. El pago y el tipo de cambio se congelan en el reporte (si cambias la tarifa o el tipo de cambio después, el histórico no cambia). En finanzas se convierte a US$.
 - Proyección = meta diaria × días laborales restantes hasta completar las incas, con la planilla de las asignaciones activas, + obligaciones recurrentes + impuesto %.
 
 ## Primer uso

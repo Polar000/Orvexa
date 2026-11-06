@@ -30,7 +30,7 @@ class _FinanceTabState extends State<FinanceTab> {
           builder: (context, d) {
             final now = DateTime.now();
             final m = actualMonth(_month, d.projects, d.reports, d.maintenance, d.expenses, d.settings);
-            final stats = d.projects.map((p) => projectStats(p, d.reports, d.assignments, d.maintenance)).toList();
+            final stats = d.projects.map((p) => projectStats(p, d.reports, d.assignments, d.maintenance, usdToGtq: d.settings.usdToGtq)).toList();
             final proj = projectMonths(now, 7, stats, d.expenses, d.settings).skip(1).toList();
             final projTotal = proj.fold<double>(0, (s, x) => s + x.profit);
             final monthEnd = DateTime(_month.year, _month.month + 1, 0);
@@ -62,7 +62,10 @@ class _FinanceTabState extends State<FinanceTab> {
                       _row('Ingresos (incas / días facturables)', m.revenue, color: Ox.yellow, bold: true),
                       const Divider(height: 20),
                       _row('Planilla operadores y ayudantes', -m.labor,
-                          note: d.settings.employerSocialPct > 0 ? 'incluye ${numText(d.settings.employerSocialPct)}% patronal' : null),
+                          note: [
+                            'pagada en quetzales, convertida a US\$',
+                            if (d.settings.employerSocialPct > 0) 'incluye ${numText(d.settings.employerSocialPct)}% patronal',
+                          ].join(' · ')),
                       _row('Mantenimiento', -m.maintenance),
                       _row('Gastos fijos (renta, seguros, combustible…)', -m.fixed),
                       _row('Impuestos', -m.taxes, note: '${numText(d.settings.incomeTaxPct)}% sobre ingresos + impuestos registrados'),
@@ -118,16 +121,17 @@ class _FinanceTabState extends State<FinanceTab> {
                           dense: true,
                           title: Text(d.personName(l.personId)),
                           subtitle: Text('${l.days} días · ${roleLabels[d.profileById[l.personId]?.role] ?? ''}'),
-                          trailing: Text(money(l.amount), style: const TextStyle(fontWeight: FontWeight.w700)),
+                          trailing: Text(quetzal(l.amount), style: const TextStyle(fontWeight: FontWeight.w700)),
                         ),
                     ]),
                   ),
-                const SectionTitle('Impuestos y cargas'),
+                const SectionTitle('Tipo de cambio e impuestos'),
                 Card(
                   child: ListTile(
                     leading: const Icon(Icons.percent, color: Ox.yellow),
-                    title: Text('Impuesto sobre ingresos: ${numText(d.settings.incomeTaxPct)}%'),
-                    subtitle: Text('Carga patronal sobre planilla: ${numText(d.settings.employerSocialPct)}%'),
+                    title: Text('Tipo de cambio: Q${numText(d.settings.usdToGtq)} por US\$1'),
+                    subtitle: Text('Impuesto sobre ingresos: ${numText(d.settings.incomeTaxPct)}% · '
+                        'carga patronal: ${numText(d.settings.employerSocialPct)}%'),
                     trailing: const Icon(Icons.edit_outlined),
                     onTap: () => _editSettings(context, d.settings),
                   ),
@@ -220,12 +224,14 @@ class _FinanceTabState extends State<FinanceTab> {
   Future<void> _editSettings(BuildContext context, CompanySettings s) async {
     final tax = TextEditingController(text: numText(s.incomeTaxPct));
     final social = TextEditingController(text: numText(s.employerSocialPct));
+    final fx = TextEditingController(text: numText(s.usdToGtq));
     final ok = await showDialog<bool>(
       context: context,
       builder: (c) => AlertDialog(
         backgroundColor: Ox.graphite,
-        title: const Text('Impuestos y cargas'),
+        title: const Text('Tipo de cambio e impuestos'),
         content: Column(mainAxisSize: MainAxisSize.min, children: [
+          Field(fx, 'Quetzales por 1 US\$', number: true, decimal: true, prefix: 'Q '),
           Field(tax, 'Impuesto sobre ingresos', number: true, decimal: true, suffix: '%'),
           Field(social, 'Carga patronal sobre planilla (ej. IGSS)', number: true, decimal: true, suffix: '%'),
           const Text('Consulta a tu contador el porcentaje que aplica a tu régimen.',
@@ -241,6 +247,7 @@ class _FinanceTabState extends State<FinanceTab> {
     if (await guard(context, () => Repo.saveSettings({
           'income_tax_pct': parseNum(tax.text) ?? 0,
           'employer_social_pct': parseNum(social.text) ?? 0,
+          if ((parseNum(fx.text) ?? 0) > 0) 'usd_to_gtq': parseNum(fx.text),
         }), ok: 'Guardado')) {
       widget.store.reload();
     }

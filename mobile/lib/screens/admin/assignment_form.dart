@@ -139,7 +139,7 @@ class _AssignmentFormState extends State<AssignmentForm> {
             required: true,
             onChanged: (v) => setState(() => _operator = v),
           ),
-          Field(_opPay, 'Pago diario al operador', number: true, decimal: true, prefix: r'$ ', required: true),
+          Field(_opPay, 'Pago diario al operador', number: true, decimal: true, prefix: 'Q ', required: true),
           if (machine?.needsHelper == true) ...[
             const SectionTitle('Ayudante (hincadora)'),
             Dropdown<String?>(
@@ -148,7 +148,7 @@ class _AssignmentFormState extends State<AssignmentForm> {
               items: {null: 'Sin ayudante', ...helpers},
               onChanged: (v) => setState(() => _helper = v),
             ),
-            if (_helper != null) Field(_hpPay, 'Pago diario al ayudante', number: true, decimal: true, prefix: r'$ '),
+            if (_helper != null) Field(_hpPay, 'Pago diario al ayudante', number: true, decimal: true, prefix: 'Q '),
           ],
           Field(_target, 'Meta diaria de esta máquina', number: true, suffix: widget.project.unitName,
               hint: widget.project.dailyTarget > 0 ? 'Meta del proyecto: ${widget.project.dailyTarget}/día' : null),
@@ -157,8 +157,8 @@ class _AssignmentFormState extends State<AssignmentForm> {
             color: Ox.yellow.withValues(alpha: 0.08),
             child: ListTile(
               title: const Text('Costo de planilla por día'),
-              subtitle: const Text('Se cobra solo los días con reporte'),
-              trailing: Text(money(daily), style: Theme.of(context).textTheme.titleMedium?.copyWith(color: Ox.yellow)),
+              subtitle: Text('Solo los días con reporte · ≈ ${money(d.settings.toUsd(daily))}'),
+              trailing: Text(quetzal(daily), style: Theme.of(context).textTheme.titleMedium?.copyWith(color: Ox.yellow)),
             ),
           ),
           const SizedBox(height: 16),
