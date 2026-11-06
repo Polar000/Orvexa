@@ -11,6 +11,7 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 
 import 'data.dart';
 import 'models.dart';
+import 'photos.dart';
 
 /// UUID v4 generado en el teléfono: permite reintentar el envío sin duplicar registros.
 String newId() {
@@ -46,19 +47,31 @@ class OutboxItem {
   Map<String, dynamic> payload;
   final DateTime createdAt;
   String? error; // rechazado por el servidor (no por señal)
-  OutboxItem({required this.id, required this.kind, required this.op, required this.payload, DateTime? createdAt, this.error})
-      : createdAt = createdAt ?? DateTime.now();
+  OutboxItem({
+    required this.id,
+    required this.kind,
+    required this.op,
+    required this.payload,
+    DateTime? createdAt,
+    this.error,
+  }) : createdAt = createdAt ?? DateTime.now();
 
-  Map<String, dynamic> toJson() =>
-      {'id': id, 'kind': kind, 'op': op, 'payload': payload, 'createdAt': createdAt.toIso8601String(), 'error': error};
+  Map<String, dynamic> toJson() => {
+    'id': id,
+    'kind': kind,
+    'op': op,
+    'payload': payload,
+    'createdAt': createdAt.toIso8601String(),
+    'error': error,
+  };
   factory OutboxItem.fromJson(Map<String, dynamic> m) => OutboxItem(
-        id: m['id'],
-        kind: m['kind'],
-        op: m['op'],
-        payload: Map<String, dynamic>.from(m['payload']),
-        createdAt: DateTime.tryParse(m['createdAt'] ?? ''),
-        error: m['error'],
-      );
+    id: m['id'],
+    kind: m['kind'],
+    op: m['op'],
+    payload: Map<String, dynamic>.from(m['payload']),
+    createdAt: DateTime.tryParse(m['createdAt'] ?? ''),
+    error: m['error'],
+  );
 
   String get reportKey => '${payload['assignment_id']}|${payload['report_date']}';
 }
@@ -66,14 +79,36 @@ class OutboxItem {
 /// Envía un registro al servidor. Se puede reemplazar en pruebas.
 typedef OutboxSender = Future<void> Function(OutboxItem item);
 
+const _tables = {'report': 'daily_reports', 'maintenance': 'maintenance_logs', 'fuel': 'fuel_logs'};
+
+/// Campos solo para el teléfono (no van a la base).
+Map<String, dynamic> _dbPayload(OutboxItem it) {
+  final p = Map<String, dynamic>.from(it.payload)
+    ..remove('operator_pay')
+    ..remove('helper_pay')
+    ..remove('_photos_pending');
+  final pend = (it.payload['_photos_pending'] as List? ?? []).map((e) => (e as Map)['remote'] as String);
+  p['photos'] = [...(it.payload['photos'] as List? ?? []).cast<String>(), ...pend];
+  return p;
+}
+
 Future<void> supabaseSender(OutboxItem it) async {
-  final table = it.kind == 'report' ? 'daily_reports' : 'maintenance_logs';
+  final table = _tables[it.kind]!;
+  // 1) Fotos primero (si se corta, se reintenta y se sobrescribe la misma ruta).
+  final pend = (it.payload['_photos_pending'] as List? ?? []).map((e) => Map<String, dynamic>.from(e as Map)).toList();
+  for (final ph in pend) {
+    await uploadPhoto(ph['local'], ph['remote']).timeout(const Duration(seconds: 60));
+  }
+  await _sendRow(table, it);
+  for (final ph in pend) {
+    deleteLocalPhoto(ph['local']);
+  }
+}
+
+Future<void> _sendRow(String table, OutboxItem it) async {
   if (it.op == 'insert') {
     try {
-      final payload = Map<String, dynamic>.from(it.payload)
-        ..remove('operator_pay')
-        ..remove('helper_pay');
-      await db.from(table).insert({...payload, 'id': it.id}).timeout(const Duration(seconds: 20));
+      await db.from(table).insert({..._dbPayload(it), 'id': it.id}).timeout(const Duration(seconds: 20));
     } on PostgrestException catch (e) {
       if (e.code != '23505') rethrow;
       // ¿Ya se había enviado (se perdió la respuesta)? Entonces está bien.
@@ -82,11 +117,9 @@ Future<void> supabaseSender(OutboxItem it) async {
       throw AppError('Ya existe un reporte de ese día en el servidor. Ábrelo desde el historial para corregirlo.');
     }
   } else {
-    final payload = Map<String, dynamic>.from(it.payload)
+    final payload = _dbPayload(it)
       ..remove('project_id')
-      ..remove('machine_id')
-      ..remove('operator_pay')
-      ..remove('helper_pay');
+      ..remove('machine_id');
     final rows = await db.from(table).update(payload).eq('id', it.id).select('id').timeout(const Duration(seconds: 20));
     if ((rows as List).isEmpty) {
       throw AppError('No se pudo corregir: solo se pueden corregir reportes de los últimos 2 días.');
@@ -96,8 +129,8 @@ Future<void> supabaseSender(OutboxItem it) async {
 
 class Outbox extends ChangeNotifier {
   Outbox({OutboxSender? sender, Stream<List<ConnectivityResult>>? connectivity})
-      : _sender = sender ?? supabaseSender,
-        _connStream = connectivity;
+    : _sender = sender ?? supabaseSender,
+      _connStream = connectivity;
   static Outbox instance = Outbox();
 
   final OutboxSender _sender;
@@ -151,8 +184,13 @@ class Outbox extends ChangeNotifier {
     String? notes,
     double downtimeHours = 0,
     String? downtimeReason,
+    double? hourMeter,
+    List<String> photos = const [],
+    List<String> localPhotos = const [],
   }) async {
     final payload = <String, dynamic>{
+      'hour_meter': hourMeter,
+      'photos': photos,
       'assignment_id': assignment.id,
       'project_id': assignment.projectId,
       'machine_id': assignment.machineId,
@@ -171,17 +209,16 @@ class Outbox extends ChangeNotifier {
     if (existing != null) {
       item = items.where((i) => i.id == existing.id).firstOrNull;
     }
-    item ??= items.where((i) => i.kind == 'report' && i.op == 'insert' && i.reportKey == '${assignment.id}|${dateKey(date)}').firstOrNull;
+    item ??= items
+        .where((i) => i.kind == 'report' && i.op == 'insert' && i.reportKey == '${assignment.id}|${dateKey(date)}')
+        .firstOrNull;
+    final id = item?.id ?? existing?.id ?? newId();
+    payload['_photos_pending'] = _photoPairs('r/${assignment.id}/$id', localPhotos, item?.payload['_photos_pending']);
     if (item != null) {
       item.payload = payload; // corrige lo que aún no se envía
       item.error = null;
     } else {
-      item = OutboxItem(
-        id: existing?.id ?? newId(),
-        kind: 'report',
-        op: existing == null ? 'insert' : 'update',
-        payload: payload,
-      );
+      item = OutboxItem(id: id, kind: 'report', op: existing == null ? 'insert' : 'update', payload: payload);
       items.add(item);
     }
     await _persist();
@@ -198,16 +235,24 @@ class Outbox extends ChangeNotifier {
     required String description,
     double? hourMeter,
     double cost = 0,
+    List<String> localPhotos = const [],
   }) async {
-    final item = OutboxItem(id: newId(), kind: 'maintenance', op: 'insert', payload: {
-      'machine_id': machineId,
-      'project_id': projectId,
-      'log_date': dateKey(date),
-      'type': type,
-      'description': description,
-      'hour_meter': hourMeter,
-      'cost': cost,
-    });
+    final id = newId();
+    final item = OutboxItem(
+      id: id,
+      kind: 'maintenance',
+      op: 'insert',
+      payload: {
+        '_photos_pending': _photoPairs('m/$machineId/$id', localPhotos, null),
+        'machine_id': machineId,
+        'project_id': projectId,
+        'log_date': dateKey(date),
+        'type': type,
+        'description': description,
+        'hour_meter': hourMeter,
+        'cost': cost,
+      },
+    );
     items.add(item);
     await _persist();
     notifyListeners();
@@ -217,6 +262,47 @@ class Outbox extends ChangeNotifier {
 
   Future<void>? _running;
   bool _again = false;
+
+  Future<bool> addFuel({
+    required String machineId,
+    String? projectId,
+    required DateTime date,
+    required double gallons,
+    required double costGtq,
+    double? hourMeter,
+    String? notes,
+    List<String> localPhotos = const [],
+  }) async {
+    final id = newId();
+    final item = OutboxItem(
+      id: id,
+      kind: 'fuel',
+      op: 'insert',
+      payload: {
+        'machine_id': machineId,
+        'project_id': projectId,
+        'log_date': dateKey(date),
+        'gallons': gallons,
+        'cost_gtq': costGtq,
+        'hour_meter': hourMeter,
+        'notes': notes,
+        '_photos_pending': _photoPairs('f/$machineId/$id', localPhotos, null),
+      },
+    );
+    items.add(item);
+    await _persist();
+    notifyListeners();
+    await sync();
+    return !items.any((i) => i.id == item.id);
+  }
+
+  /// Une fotos locales con su ruta final; conserva la ruta de las que ya estaban.
+  List<Map<String, String>> _photoPairs(String prefix, List<String> locals, dynamic prev) {
+    final old = {for (final e in (prev as List? ?? [])) (e as Map)['local'] as String: e['remote'] as String};
+    return [
+      for (final l in locals) {'local': l, 'remote': old[l] ?? '$prefix-${newId().substring(0, 8)}.jpg'},
+    ];
+  }
 
   /// Envía en orden lo pendiente. Si no hay señal se detiene y lo intenta más tarde.
   /// Si se pide de nuevo mientras está enviando, da otra vuelta al terminar.
@@ -277,14 +363,18 @@ class Outbox extends ChangeNotifier {
   }
 
   List<DailyReport> pendingReports() => [
-        for (final i in items.where((i) => i.kind == 'report'))
-          DailyReport.fromMap({...i.payload, 'id': i.id}, pending: true),
-      ];
+    for (final i in items.where((i) => i.kind == 'report'))
+      DailyReport.fromMap({...i.payload, 'id': i.id}, pending: true),
+  ];
 
   List<MaintenanceLog> pendingMaintenance() => [
-        for (final i in items.where((i) => i.kind == 'maintenance'))
-          MaintenanceLog.fromMap({...i.payload, 'id': i.id}, pending: true),
-      ];
+    for (final i in items.where((i) => i.kind == 'maintenance'))
+      MaintenanceLog.fromMap({...i.payload, 'id': i.id}, pending: true),
+  ];
+
+  List<FuelLog> pendingFuel() => [
+    for (final i in items.where((i) => i.kind == 'fuel')) FuelLog.fromMap({...i.payload, 'id': i.id}, pending: true),
+  ];
 
   /// Une lo del servidor con lo pendiente (lo pendiente gana).
   List<DailyReport> mergeReports(List<DailyReport> server) {

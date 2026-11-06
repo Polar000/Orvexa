@@ -23,18 +23,18 @@ class OrvexaApp extends StatelessWidget {
   const OrvexaApp({super.key});
   @override
   Widget build(BuildContext context) => MaterialApp(
-        title: 'ORVEXA Operaciones',
-        debugShowCheckedModeBanner: false,
-        theme: orvexaTheme(),
-        locale: const Locale('es'),
-        supportedLocales: const [Locale('es'), Locale('en')],
-        localizationsDelegates: const [
-          GlobalMaterialLocalizations.delegate,
-          GlobalWidgetsLocalizations.delegate,
-          GlobalCupertinoLocalizations.delegate,
-        ],
-        home: const AuthGate(),
-      );
+    title: 'ORVEXA Operaciones',
+    debugShowCheckedModeBanner: false,
+    theme: orvexaTheme(),
+    locale: const Locale('es'),
+    supportedLocales: const [Locale('es'), Locale('en')],
+    localizationsDelegates: const [
+      GlobalMaterialLocalizations.delegate,
+      GlobalWidgetsLocalizations.delegate,
+      GlobalCupertinoLocalizations.delegate,
+    ],
+    home: const AuthGate(),
+  );
 }
 
 /// Decide qué ver según la sesión y el rol del usuario.

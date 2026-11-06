@@ -11,9 +11,14 @@ import 'package:orvexa_app/calc.dart';
 import 'package:orvexa_app/data.dart';
 import 'package:orvexa_app/models.dart';
 import 'package:orvexa_app/offline.dart';
+import 'package:orvexa_app/reminders.dart';
+import 'package:orvexa_app/screens/admin/machines_tab.dart';
+import 'package:orvexa_app/screens/admin/payroll_screen.dart';
 import 'package:connectivity_plus/connectivity_plus.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+
 import 'dart:async';
+
 import 'package:orvexa_app/screens/admin/admin_shell.dart';
 import 'package:orvexa_app/screens/admin/project_detail.dart';
 import 'package:orvexa_app/screens/operator/operator_home.dart';
@@ -42,20 +47,123 @@ AdminData demo() {
     _p('ay2', 'Luis Hernández', UserRole.ayudante),
   ];
   final machines = [
-    Machine(id: 'm1', name: 'Hincadora HWL600R #1', code: 'HWL-01', type: 'hincadora', status: 'en_proyecto', operatorDailyPay: 300, helperDailyPay: 180, hourMeter: 1250),
-    Machine(id: 'm2', name: 'Hincadora HWL600R #2', code: 'HWL-02', type: 'hincadora', status: 'en_proyecto', operatorDailyPay: 300, helperDailyPay: 180),
-    Machine(id: 'm3', name: 'Bobcat S650', code: 'BC-01', type: 'bobcat', status: 'en_proyecto', operatorDailyPay: 275, helperDailyPay: 0),
-    Machine(id: 'm4', name: 'Hincadora PD-10', type: 'hincadora', status: 'mantenimiento', operatorDailyPay: 280, helperDailyPay: 170),
+    Machine(
+      id: 'm1',
+      name: 'Hincadora HWL600R #1',
+      code: 'HWL-01',
+      type: 'hincadora',
+      status: 'en_proyecto',
+      operatorDailyPay: 300,
+      helperDailyPay: 180,
+      hourMeter: 1250,
+    ),
+    Machine(
+      id: 'm2',
+      name: 'Hincadora HWL600R #2',
+      code: 'HWL-02',
+      type: 'hincadora',
+      status: 'en_proyecto',
+      operatorDailyPay: 300,
+      helperDailyPay: 180,
+    ),
+    Machine(
+      id: 'm3',
+      name: 'Bobcat S650',
+      code: 'BC-01',
+      type: 'bobcat',
+      status: 'en_proyecto',
+      operatorDailyPay: 275,
+      helperDailyPay: 0,
+    ),
+    Machine(
+      id: 'm4',
+      name: 'Hincadora PD-10',
+      type: 'hincadora',
+      status: 'mantenimiento',
+      operatorDailyPay: 280,
+      helperDailyPay: 170,
+    ),
   ];
   final projects = [
-    Project(id: 'p1', name: 'Parque Solar Escuintla F2', client: 'SolarGT S.A.', location: 'Masagua, Escuintla', type: 'hincado', status: 'activo', billingMode: 'por_unidad', totalUnits: 24000, dailyTarget: 400, pricePerUnit: 18.5, dailyRate: 0, startDate: today.subtract(const Duration(days: 40)), workDaysPerWeek: 6),
-    Project(id: 'p2', name: 'Nivelación Planta Norte', client: 'Constructora Atlas', type: 'bobcat', status: 'activo', billingMode: 'por_dia', totalUnits: 0, dailyTarget: 0, pricePerUnit: 0, dailyRate: 320, startDate: today.subtract(const Duration(days: 12)), workDaysPerWeek: 6),
-    Project(id: 'p3', name: 'Solar Jutiapa 30MW', client: 'Energía Verde', type: 'hincado', status: 'planificado', billingMode: 'por_unidad', totalUnits: 15000, dailyTarget: 200, pricePerUnit: 22, dailyRate: 0, startDate: today.add(const Duration(days: 20)), workDaysPerWeek: 6),
+    Project(
+      id: 'p1',
+      name: 'Parque Solar Escuintla F2',
+      client: 'SolarGT S.A.',
+      location: 'Masagua, Escuintla',
+      type: 'hincado',
+      status: 'activo',
+      billingMode: 'por_unidad',
+      totalUnits: 24000,
+      dailyTarget: 400,
+      pricePerUnit: 18.5,
+      dailyRate: 0,
+      startDate: today.subtract(const Duration(days: 40)),
+      workDaysPerWeek: 6,
+    ),
+    Project(
+      id: 'p2',
+      name: 'Nivelación Planta Norte',
+      client: 'Constructora Atlas',
+      type: 'bobcat',
+      status: 'activo',
+      billingMode: 'por_dia',
+      totalUnits: 0,
+      dailyTarget: 0,
+      pricePerUnit: 0,
+      dailyRate: 320,
+      startDate: today.subtract(const Duration(days: 12)),
+      workDaysPerWeek: 6,
+    ),
+    Project(
+      id: 'p3',
+      name: 'Solar Jutiapa 30MW',
+      client: 'Energía Verde',
+      type: 'hincado',
+      status: 'planificado',
+      billingMode: 'por_unidad',
+      totalUnits: 15000,
+      dailyTarget: 200,
+      pricePerUnit: 22,
+      dailyRate: 0,
+      startDate: today.add(const Duration(days: 20)),
+      workDaysPerWeek: 6,
+    ),
   ];
   final assignments = [
-    Assignment(id: 'a1', projectId: 'p1', machineId: 'm1', operatorId: 'op1', helperId: 'ay1', operatorDailyPay: 300, helperDailyPay: 180, dailyTarget: 200, startDate: projects[0].startDate!, active: true),
-    Assignment(id: 'a2', projectId: 'p1', machineId: 'm2', operatorId: 'op2', helperId: 'ay2', operatorDailyPay: 300, helperDailyPay: 180, dailyTarget: 200, startDate: projects[0].startDate!, active: true),
-    Assignment(id: 'a3', projectId: 'p2', machineId: 'm3', operatorId: 'op3', operatorDailyPay: 275, helperDailyPay: 0, startDate: projects[1].startDate!, active: true),
+    Assignment(
+      id: 'a1',
+      projectId: 'p1',
+      machineId: 'm1',
+      operatorId: 'op1',
+      helperId: 'ay1',
+      operatorDailyPay: 300,
+      helperDailyPay: 180,
+      dailyTarget: 200,
+      startDate: projects[0].startDate!,
+      active: true,
+    ),
+    Assignment(
+      id: 'a2',
+      projectId: 'p1',
+      machineId: 'm2',
+      operatorId: 'op2',
+      helperId: 'ay2',
+      operatorDailyPay: 300,
+      helperDailyPay: 180,
+      dailyTarget: 200,
+      startDate: projects[0].startDate!,
+      active: true,
+    ),
+    Assignment(
+      id: 'a3',
+      projectId: 'p2',
+      machineId: 'm3',
+      operatorId: 'op3',
+      operatorDailyPay: 275,
+      helperDailyPay: 0,
+      startDate: projects[1].startDate!,
+      active: true,
+    ),
   ];
   final reports = <DailyReport>[];
   var n = 0;
@@ -66,22 +174,112 @@ AdminData demo() {
       final rain = i % 11 == 0;
       final client = i % 7 == 3 && a.id == 'a1';
       final u = rain ? 0 : (client ? 120 : 170 + ((i * 37 + a.id.hashCode) % 60));
-      reports.add(DailyReport(id: '${n++}', assignmentId: a.id, projectId: 'p1', machineId: a.machineId, operatorId: a.operatorId, date: d, units: u, hours: rain ? 0 : 9, helperPresent: i % 9 != 0, operatorPay: 300, helperPay: i % 9 != 0 ? 180 : 0,
-          downtimeHours: rain ? 9 : (client ? 3.5 : 0), downtimeReason: rain ? 'lluvia' : (client ? 'falta_material' : null)));
+      reports.add(
+        DailyReport(
+          id: '${n++}',
+          assignmentId: a.id,
+          projectId: 'p1',
+          machineId: a.machineId,
+          operatorId: a.operatorId,
+          date: d,
+          units: u,
+          hours: rain ? 0 : 9,
+          helperPresent: i % 9 != 0,
+          operatorPay: 300,
+          helperPay: i % 9 != 0 ? 180 : 0,
+          downtimeHours: rain ? 9 : (client ? 3.5 : 0),
+          downtimeReason: rain ? 'lluvia' : (client ? 'falta_material' : null),
+        ),
+      );
     }
     if (i <= 12) {
-      reports.add(DailyReport(id: '${n++}', assignmentId: 'a3', projectId: 'p2', machineId: 'm3', operatorId: 'op3', date: d, units: 0, hours: 8, helperPresent: false, operatorPay: 275, helperPay: 0));
+      reports.add(
+        DailyReport(
+          id: '${n++}',
+          assignmentId: 'a3',
+          projectId: 'p2',
+          machineId: 'm3',
+          operatorId: 'op3',
+          date: d,
+          units: 0,
+          hours: 8,
+          helperPresent: false,
+          operatorPay: 275,
+          helperPay: 0,
+        ),
+      );
     }
   }
-  reports.add(DailyReport(id: '${n++}', assignmentId: 'a1', projectId: 'p1', machineId: 'm1', operatorId: 'op1', date: today, units: 215, hours: 9, helperPresent: true, operatorPay: 300, helperPay: 180, notes: 'Terreno duro en fila 14'));
+  reports.add(
+    DailyReport(
+      id: '${n++}',
+      assignmentId: 'a1',
+      projectId: 'p1',
+      machineId: 'm1',
+      operatorId: 'op1',
+      date: today,
+      units: 215,
+      hours: 9,
+      helperPresent: true,
+      operatorPay: 300,
+      helperPay: 180,
+      notes: 'Terreno duro en fila 14',
+    ),
+  );
   final expenses = [
-    Expense(id: 'e1', category: 'renta', description: 'Renta de bodega', amount: 1200, recurrence: 'mensual', dueDate: DateTime(today.year, today.month + 1, 5), startDate: DateTime(2026, 1, 5), paid: false),
-    Expense(id: 'e2', category: 'seguro', description: 'Seguro de flota', amount: 650, recurrence: 'mensual', dueDate: today.subtract(const Duration(days: 2)), startDate: DateTime(2026, 1, 1), paid: false),
-    Expense(id: 'e3', category: 'combustible', description: 'Diésel', amount: 900, recurrence: 'semanal', dueDate: today.add(const Duration(days: 3)), startDate: DateTime(2026, 6, 1), paid: false),
-    Expense(id: 'e4', category: 'impuesto', description: 'ISR trimestral', amount: 3000, recurrence: 'unica', dueDate: DateTime(today.year, today.month + 1, 20), startDate: DateTime(today.year, today.month + 1, 20), paid: false),
+    Expense(
+      id: 'e1',
+      category: 'renta',
+      description: 'Renta de bodega',
+      amount: 1200,
+      recurrence: 'mensual',
+      dueDate: DateTime(today.year, today.month + 1, 5),
+      startDate: DateTime(2026, 1, 5),
+      paid: false,
+    ),
+    Expense(
+      id: 'e2',
+      category: 'seguro',
+      description: 'Seguro de flota',
+      amount: 650,
+      recurrence: 'mensual',
+      dueDate: today.subtract(const Duration(days: 2)),
+      startDate: DateTime(2026, 1, 1),
+      paid: false,
+    ),
+    Expense(
+      id: 'e3',
+      category: 'combustible',
+      description: 'Diésel',
+      amount: 900,
+      recurrence: 'semanal',
+      dueDate: today.add(const Duration(days: 3)),
+      startDate: DateTime(2026, 6, 1),
+      paid: false,
+    ),
+    Expense(
+      id: 'e4',
+      category: 'impuesto',
+      description: 'ISR trimestral',
+      amount: 3000,
+      recurrence: 'unica',
+      dueDate: DateTime(today.year, today.month + 1, 20),
+      startDate: DateTime(today.year, today.month + 1, 20),
+      paid: false,
+    ),
   ];
   final maint = [
-    MaintenanceLog(id: 'x1', machineId: 'm1', projectId: 'p1', reportedBy: 'op1', date: today.subtract(const Duration(days: 3)), type: 'cambio_aceite', description: 'Aceite 15W40 y filtro', hourMeter: 1250, cost: 180),
+    MaintenanceLog(
+      id: 'x1',
+      machineId: 'm1',
+      projectId: 'p1',
+      reportedBy: 'op1',
+      date: today.subtract(const Duration(days: 3)),
+      type: 'cambio_aceite',
+      description: 'Aceite 15W40 y filtro',
+      hourMeter: 1250,
+      cost: 180,
+    ),
   ];
   return AdminData(
     profiles: profiles,
@@ -91,30 +289,124 @@ AdminData demo() {
     reports: reports,
     maintenance: maint,
     expenses: expenses,
+    plans: [
+      MaintenancePlan(
+        id: 'pl1',
+        machineId: 'm1',
+        type: 'cambio_aceite',
+        label: 'Aceite de motor',
+        intervalHours: 250,
+        lastDoneHours: 1030,
+      ),
+      MaintenancePlan(
+        id: 'pl2',
+        machineId: 'm1',
+        type: 'engrase',
+        label: 'Engrase de torre',
+        intervalHours: 50,
+        lastDoneHours: 1190,
+      ),
+      MaintenancePlan(
+        id: 'pl3',
+        machineId: 'm1',
+        type: 'filtros',
+        label: 'Filtros de aire y combustible',
+        intervalHours: 500,
+        lastDoneHours: 900,
+      ),
+    ],
+    fuel: [
+      for (var i = 1; i <= 6; i++)
+        FuelLog(
+          id: 'f$i',
+          machineId: i.isEven ? 'm1' : 'm2',
+          projectId: 'p1',
+          reportedBy: i.isEven ? 'op1' : 'op2',
+          date: today.subtract(Duration(days: i * 5)),
+          gallons: 28,
+          costGtq: 28 * 36.5,
+          hourMeter: 1250.0 - i * 40,
+          fxRate: 7.64,
+        ),
+    ],
+    adjustments: [
+      PayrollAdjustment(
+        id: 'ad1',
+        personId: 'op1',
+        date: DateTime(today.year, today.month, 4),
+        kind: 'adelanto',
+        amount: 500,
+        note: 'Adelanto en efectivo',
+      ),
+      PayrollAdjustment(
+        id: 'ad2',
+        personId: 'ay1',
+        date: DateTime(today.year, today.month, 5),
+        kind: 'bono',
+        amount: 150,
+        note: 'Meta cumplida',
+      ),
+    ],
+    periods: [
+      PayrollPeriod(
+        id: 'per2',
+        start: DateTime(today.year, today.month, 1),
+        end: DateTime(today.year, today.month, 15),
+        status: 'abierto',
+      ),
+      PayrollPeriod(
+        id: 'per1',
+        start: DateTime(today.year, today.month - 1, 16),
+        end: DateTime(today.year, today.month, 0),
+        status: 'pagado',
+        paidAt: DateTime(today.year, today.month, 1),
+      ),
+    ],
+    payments: [
+      PayrollPayment(
+        id: 'pp1',
+        periodId: 'per1',
+        personId: 'op1',
+        personName: 'Juan Pérez',
+        role: 'operador',
+        days: 13,
+        gross: 3900,
+        bonuses: 0,
+        advances: 0,
+        deductions: 0,
+        net: 3900,
+      ),
+    ],
     settings: CompanySettings(incomeTaxPct: 5, employerSocialPct: 12.67, usdToGtq: 7.64),
   );
 }
 
 Widget app(Widget home) => MaterialApp(
-      debugShowCheckedModeBanner: false,
-      theme: orvexaTheme(),
-      locale: const Locale('es'),
-      supportedLocales: const [Locale('es')],
-      localizationsDelegates: const [
-        GlobalMaterialLocalizations.delegate,
-        GlobalWidgetsLocalizations.delegate,
-        GlobalCupertinoLocalizations.delegate,
-      ],
-      home: home,
-    );
+  debugShowCheckedModeBanner: false,
+  theme: orvexaTheme(),
+  locale: const Locale('es'),
+  supportedLocales: const [Locale('es')],
+  localizationsDelegates: const [
+    GlobalMaterialLocalizations.delegate,
+    GlobalWidgetsLocalizations.delegate,
+    GlobalCupertinoLocalizations.delegate,
+  ],
+  home: home,
+);
 
 void main() {
   setUpAll(() async {
     SharedPreferences.setMockInitialValues({});
+    Reminders.enabled = false;
     useGoogleFonts = false;
     await initializeDateFormatting('es');
     const r = '/opt/flutter/bin/cache/artifacts/material_fonts';
-    await _loadFont('TestSans', ['$r/Roboto-Regular.ttf', '$r/Roboto-Medium.ttf', '$r/Roboto-Bold.ttf', '$r/Roboto-Black.ttf']);
+    await _loadFont('TestSans', [
+      '$r/Roboto-Regular.ttf',
+      '$r/Roboto-Medium.ttf',
+      '$r/Roboto-Bold.ttf',
+      '$r/Roboto-Black.ttf',
+    ]);
     await _loadFont('MaterialIcons', ['$r/MaterialIcons-Regular.otf']);
   });
 
@@ -150,22 +442,35 @@ void main() {
     await phone(t, h: 900);
     final d = demo();
     Future<OperatorData> loader(String _) async => OperatorData(
-          assignments: [d.assignments.first],
-          projects: {'p1': d.projects.first},
-          machines: {'m1': d.machines.first},
-          reports: d.reports.where((r) => r.assignmentId == 'a1').toList(),
-          maintenance: d.maintenance,
-          people: {'a1': ('Juan Pérez', 'Pedro Gómez')},
-        );
+      assignments: [d.assignments.first],
+      projects: {'p1': d.projects.first},
+      machines: {'m1': d.machines.first},
+      reports: d.reports.where((r) => r.assignmentId == 'a1').toList(),
+      maintenance: d.maintenance,
+      people: {'a1': ('Juan Pérez', 'Pedro Gómez')},
+    );
     final outbox = Outbox(
       sender: (_) async => throw Exception('SocketException: Failed host lookup'),
       connectivity: StreamController<List<ConnectivityResult>>.broadcast().stream,
     );
     await t.runAsync(() async {
       await outbox.init('op1');
-      await outbox.saveReport(assignment: d.assignments.first, date: DateTime.now(), units: 185, helperPresent: true,
-          downtimeHours: 2, downtimeReason: 'lluvia', notes: 'Lluvia de 1 a 3 pm');
-      await outbox.addMaintenance(machineId: 'm1', projectId: 'p1', date: DateTime.now(), type: 'engrase', description: 'Engrase de torre');
+      await outbox.saveReport(
+        assignment: d.assignments.first,
+        date: DateTime.now(),
+        units: 185,
+        helperPresent: true,
+        downtimeHours: 2,
+        downtimeReason: 'lluvia',
+        notes: 'Lluvia de 1 a 3 pm',
+      );
+      await outbox.addMaintenance(
+        machineId: 'm1',
+        projectId: 'p1',
+        date: DateTime.now(),
+        type: 'engrase',
+        description: 'Engrase de torre',
+      );
     });
     await t.pumpWidget(app(OperatorHome(me: d.profiles[1], loader: loader, outbox: outbox)));
     await t.pumpAndSettle();
@@ -174,13 +479,17 @@ void main() {
     await t.pumpAndSettle();
     await expectLater(find.byType(MaterialApp), matchesGoldenFile('goldens/operador_2_historial.png'));
 
-    await t.pumpWidget(app(ReportForm(
-      assignment: d.assignments.first,
-      project: d.projects.first,
-      machine: d.machines.first,
-      helperName: 'Pedro Gómez',
-      date: DateTime.now(),
-    )));
+    await t.pumpWidget(
+      app(
+        ReportForm(
+          assignment: d.assignments.first,
+          project: d.projects.first,
+          machine: d.machines.first,
+          helperName: 'Pedro Gómez',
+          date: DateTime.now(),
+        ),
+      ),
+    );
     await t.pumpAndSettle();
     await t.enterText(find.byType(TextFormField).first, '120');
     await t.pumpAndSettle();
@@ -193,5 +502,55 @@ void main() {
     t.view.physicalSize = const Size(390 * 2, 1250 * 2);
     await t.pumpAndSettle();
     await expectLater(find.byType(MaterialApp), matchesGoldenFile('goldens/operador_3_reporte.png'));
+  });
+
+  testWidgets('admin: máquina con planes y combustible', (t) async {
+    await phone(t, h: 2100);
+    final store = AdminStore()..data = demo();
+    await t.pumpWidget(app(MachineDetail(store: store, machineId: 'm1')));
+    await t.pumpAndSettle();
+    await expectLater(find.byType(MaterialApp), matchesGoldenFile('goldens/admin_6_maquina.png'));
+  });
+
+  testWidgets('admin: cierre de planilla', (t) async {
+    await phone(t, h: 1100);
+    final store = AdminStore()..data = demo();
+    await t.pumpWidget(app(PeriodDetail(store: store, periodId: 'per2')));
+    await t.pumpAndSettle();
+    await expectLater(find.byType(MaterialApp), matchesGoldenFile('goldens/admin_7_planilla.png'));
+  });
+
+  testWidgets('operador: máquina y pagos', (t) async {
+    await phone(t, h: 1300);
+    final d = demo();
+    Future<OperatorData> loader(String _) async => OperatorData(
+      assignments: [d.assignments.first],
+      projects: {'p1': d.projects.first},
+      machines: {'m1': d.machines.first},
+      reports: d.reports.where((r) => r.assignmentId == 'a1').toList(),
+      maintenance: d.maintenance,
+      people: {'a1': ('Juan Pérez', 'Pedro Gómez')},
+      plans: d.plans,
+      fuel: d.fuel.where((f) => f.machineId == 'm1').toList(),
+      payments: d.payments,
+      periods: d.periods,
+      adjustments: d.adjustments.where((a) => a.personId == 'op1').toList(),
+    );
+    final outbox = Outbox(
+      sender: (_) async {},
+      connectivity: StreamController<List<ConnectivityResult>>.broadcast().stream,
+    );
+    await t.runAsync(() => outbox.init('op-maq'));
+    await t.pumpWidget(app(OperatorHome(me: d.profiles[1], loader: loader, outbox: outbox)));
+    await t.pumpAndSettle();
+    await expectLater(find.byType(MaterialApp), matchesGoldenFile('goldens/operador_4_hoy_alertas.png'));
+    await t.tap(find.descendant(of: find.byType(NavigationBar), matching: find.text('Máquina')));
+    await t.pumpAndSettle();
+    await expectLater(find.byType(MaterialApp), matchesGoldenFile('goldens/operador_5_maquina.png'));
+    await t.tap(find.descendant(of: find.byType(NavigationBar), matching: find.text('Pagos')));
+    await t.pumpAndSettle();
+    await expectLater(find.byType(MaterialApp), matchesGoldenFile('goldens/operador_6_pagos.png'));
+    await t.pumpWidget(const SizedBox());
+    outbox.dispose();
   });
 }

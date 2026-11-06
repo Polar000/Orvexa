@@ -48,23 +48,39 @@ ThemeData orvexaTheme({String testFont = 'TestSans'}) {
       surfaceTintColor: Colors.transparent,
       elevation: 0,
       centerTitle: false,
-      titleTextStyle: TextStyle(fontFamily: head, fontSize: 20, fontWeight: FontWeight.w800, color: Ox.white, letterSpacing: 0.5),
+      titleTextStyle: TextStyle(
+        fontFamily: head,
+        fontSize: 20,
+        fontWeight: FontWeight.w800,
+        color: Ox.white,
+        letterSpacing: 0.5,
+      ),
     ),
     cardTheme: CardThemeData(
       color: Ox.graphite,
       elevation: 0,
       margin: EdgeInsets.zero,
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14), side: const BorderSide(color: Ox.darkGray)),
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(14),
+        side: const BorderSide(color: Ox.darkGray),
+      ),
     ),
     inputDecorationTheme: InputDecorationTheme(
       filled: true,
       fillColor: Ox.graphite,
       labelStyle: const TextStyle(color: Ox.lightGray),
-      border: OutlineInputBorder(borderRadius: BorderRadius.circular(10), borderSide: const BorderSide(color: Ox.darkGray)),
-      enabledBorder:
-          OutlineInputBorder(borderRadius: BorderRadius.circular(10), borderSide: const BorderSide(color: Ox.darkGray)),
-      focusedBorder:
-          OutlineInputBorder(borderRadius: BorderRadius.circular(10), borderSide: const BorderSide(color: Ox.yellow, width: 1.5)),
+      border: OutlineInputBorder(
+        borderRadius: BorderRadius.circular(10),
+        borderSide: const BorderSide(color: Ox.darkGray),
+      ),
+      enabledBorder: OutlineInputBorder(
+        borderRadius: BorderRadius.circular(10),
+        borderSide: const BorderSide(color: Ox.darkGray),
+      ),
+      focusedBorder: OutlineInputBorder(
+        borderRadius: BorderRadius.circular(10),
+        borderSide: const BorderSide(color: Ox.yellow, width: 1.5),
+      ),
     ),
     filledButtonTheme: FilledButtonThemeData(
       style: FilledButton.styleFrom(
@@ -87,13 +103,20 @@ ThemeData orvexaTheme({String testFont = 'TestSans'}) {
       backgroundColor: Ox.graphite,
       indicatorColor: Ox.yellow.withValues(alpha: 0.18),
       labelTextStyle: WidgetStateProperty.resolveWith(
-        (s) => TextStyle(fontSize: 11, fontWeight: FontWeight.w600, color: s.contains(WidgetState.selected) ? Ox.yellow : Ox.lightGray),
+        (s) => TextStyle(
+          fontSize: 11,
+          fontWeight: FontWeight.w600,
+          color: s.contains(WidgetState.selected) ? Ox.yellow : Ox.lightGray,
+        ),
       ),
       iconTheme: WidgetStateProperty.resolveWith(
         (s) => IconThemeData(color: s.contains(WidgetState.selected) ? Ox.yellow : Ox.lightGray),
       ),
     ),
-    floatingActionButtonTheme: const FloatingActionButtonThemeData(backgroundColor: Ox.yellow, foregroundColor: Ox.black),
+    floatingActionButtonTheme: const FloatingActionButtonThemeData(
+      backgroundColor: Ox.yellow,
+      foregroundColor: Ox.black,
+    ),
     dividerTheme: const DividerThemeData(color: Ox.darkGray, space: 1),
     snackBarTheme: const SnackBarThemeData(behavior: SnackBarBehavior.floating),
   );
@@ -121,6 +144,19 @@ String fechaCorta(DateTime d) => '${d.day} ${_meses[d.month - 1]}';
 String diaSemana(DateTime d) => '${_dias[d.weekday - 1]} ${d.day} ${_meses[d.month - 1]}';
 String mesCorto(DateTime d) => _meses[d.month - 1];
 String mesLargo(DateTime d) {
-  const m = ['Enero', 'Febrero', 'Marzo', 'Abril', 'Mayo', 'Junio', 'Julio', 'Agosto', 'Septiembre', 'Octubre', 'Noviembre', 'Diciembre'];
+  const m = [
+    'Enero',
+    'Febrero',
+    'Marzo',
+    'Abril',
+    'Mayo',
+    'Junio',
+    'Julio',
+    'Agosto',
+    'Septiembre',
+    'Octubre',
+    'Noviembre',
+    'Diciembre',
+  ];
   return '${m[d.month - 1]} ${d.year}';
 }

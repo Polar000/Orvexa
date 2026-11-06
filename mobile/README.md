@@ -40,6 +40,31 @@ Cómo se calcula el dinero:
 - Planilla = por cada día reportado, el pago en quetzales del operador + el del ayudante si estuvo presente. El pago y el tipo de cambio se congelan en el reporte (si cambias la tarifa o el tipo de cambio después, el histórico no cambia). En finanzas se convierte a US$.
 - Proyección = meta diaria × días laborales restantes hasta completar las incas, con la planilla de las asignaciones activas, + obligaciones recurrentes + impuesto %.
 
+### Fotos
+Reportes diarios, mantenimientos y cargas de combustible aceptan hasta 4 fotos (cámara o galería). Se guardan en el teléfono y se suben al enviar, también sin señal. Se almacenan en Supabase Storage (bucket privado `evidencias`): el operador solo ve las de sus máquinas; el admin, todas.
+
+### Mantenimiento por horómetro
+- En cada máquina el admin crea planes: "Aceite de motor cada 250 h", "Engrase cada 50 h"…
+- El horómetro se actualiza con el reporte diario ("Horómetro al cerrar"), mantenimientos y cargas de combustible.
+- Avisos: amarillo cuando faltan 25 h o menos (o el 10 % del intervalo), rojo cuando ya se pasó. Se ven en la tarjeta del operador, en la máquina y en el Panel.
+- Al registrar un mantenimiento del mismo tipo, el contador del plan se reinicia solo.
+
+### Combustible
+El operador (o el admin) registra galones, costo en Q, horómetro y foto del ticket. Se ve el gasto por máquina, galones e Q por inca, y entra como costo en Finanzas y en la utilidad de cada proyecto (con el tipo de cambio del día). Si ya registrabas el diésel como gasto fijo en Obligaciones, quita ese gasto para no contarlo dos veces.
+
+### Cierre de planilla
+Personal → "Cerrar planilla":
+- Crea el periodo (quincena actual/anterior, semana o rango libre).
+- Vista previa por persona: días pagados × pago diario, + bonos, − adelantos y descuentos con fecha en el periodo.
+- "Cerrar y marcar pagado" congela los montos (cálculo en el servidor). Se puede reabrir para corregir.
+- Recibo PDF por persona (compartir por WhatsApp, imprimir). Cada operador ve sus pagos y recibos en la pestaña "Pagos".
+
+### Reporte PDF para el cliente
+En el proyecto, ícono PDF → elige fechas → con o sin montos. Incluye producción diaria por máquina, avance total, paros y horas atribuibles al cliente.
+
+### Recordatorios
+El operador recibe una notificación a las 5:00 pm en días laborales si no ha registrado su reporte del día. Son notificaciones del propio teléfono (no necesitan internet ni servidor). Avisos push enviados desde el servidor (por ejemplo, al admin) requieren configurar Firebase con tu cuenta.
+
 ## Primer uso
 1. Abre la app: como no hay administrador, muestra **Crea el administrador**. Esa cuenta queda como admin.
 2. Agrega máquinas, crea al personal, crea un proyecto y asígnale máquinas.
@@ -51,7 +76,7 @@ Los usuarios entran con un nombre de usuario (ej. `jperez`). Internamente se gua
 
 ## Compilar
 
-Requisitos: Flutter 3.47+ y Android Studio (Android SDK) o Xcode (iOS).
+Requisitos: Flutter 3.47+ y Android Studio (Android SDK, compileSdk 37) o Xcode (iOS).
 
 ```bash
 cd mobile
@@ -72,6 +97,7 @@ flutter test --update-goldens test/screens_test.dart   # regenera capturas en te
 
 ## Backend (carpeta `../supabase`)
 - `migrations/0001_orvexa_operaciones.sql`: tablas, reglas de seguridad por rol (RLS) y disparadores. **Ya aplicado** en el proyecto Orvexa Projects.
+- `migrations/0002_fotos_horometro_combustible_planilla.sql`: fotos, planes de mantenimiento, combustible y planilla. **Ya aplicado.**
 - `functions/admin-users`: función que crea / edita usuarios (solo admin). **Ya desplegada.**
 
 Seguridad: el operador solo puede ver su asignación, su proyecto y su máquina; no puede ver finanzas, ni cambiar precios ni su pago (el pago del reporte se toma de la asignación en el servidor).

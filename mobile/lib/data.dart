@@ -1,4 +1,5 @@
 import 'package:supabase_flutter/supabase_flutter.dart';
+
 import 'models.dart';
 import 'offline.dart';
 
@@ -80,17 +81,17 @@ class Repo {
     required String password,
     required UserRole role,
     String? phone,
-  }) =>
-      _adminUsers({
-        'action': 'create',
-        'full_name': fullName,
-        'username': username,
-        'password': password,
-        'role': role.name,
-        if (phone != null && phone.isNotEmpty) 'phone': phone,
-      });
+  }) => _adminUsers({
+    'action': 'create',
+    'full_name': fullName,
+    'username': username,
+    'password': password,
+    'role': role.name,
+    if (phone != null && phone.isNotEmpty) 'phone': phone,
+  });
 
-  static Future<void> updateUser(String id, Map<String, dynamic> patch) => _adminUsers({'action': 'update', 'id': id, ...patch});
+  static Future<void> updateUser(String id, Map<String, dynamic> patch) =>
+      _adminUsers({'action': 'update', 'id': id, ...patch});
 
   static Future<void> setPassword(String id, String password) =>
       _adminUsers({'action': 'password', 'id': id, 'password': password});
@@ -107,6 +108,11 @@ class Repo {
       db.from('maintenance_logs').select().order('log_date', ascending: false),
       db.from('expenses').select().order('due_date'),
       db.from('company_settings').select().eq('id', 1).maybeSingle(),
+      db.from('maintenance_plans').select().order('label'),
+      db.from('fuel_logs').select().gte('log_date', dateKey(since)).order('log_date', ascending: false),
+      db.from('payroll_adjustments').select().order('adj_date', ascending: false),
+      db.from('payroll_periods').select().order('start_date', ascending: false),
+      db.from('payroll_payments').select().order('person_name'),
     ]);
     List<Map<String, dynamic>> l(int i) => List<Map<String, dynamic>>.from(r[i] as List);
     return AdminData(
@@ -114,12 +120,38 @@ class Repo {
       machines: l(1).map(Machine.fromMap).toList(),
       projects: l(2).map(Project.fromMap).toList(),
       assignments: l(3).map(Assignment.fromMap).toList(),
-      reports: l(4).map(DailyReport.fromMap).toList(),
-      maintenance: l(5).map(MaintenanceLog.fromMap).toList(),
+      reports: l(4).map((m) => DailyReport.fromMap(m)).toList(),
+      maintenance: l(5).map((m) => MaintenanceLog.fromMap(m)).toList(),
       expenses: l(6).map(Expense.fromMap).toList(),
       settings: CompanySettings.fromMap(r[7] as Map<String, dynamic>?),
+      plans: l(8).map(MaintenancePlan.fromMap).toList(),
+      fuel: l(9).map((m) => FuelLog.fromMap(m)).toList(),
+      adjustments: l(10).map(PayrollAdjustment.fromMap).toList(),
+      periods: l(11).map(PayrollPeriod.fromMap).toList(),
+      payments: l(12).map(PayrollPayment.fromMap).toList(),
     );
   }
+
+  // ------------------------------------------------------------ planes de mantenimiento
+  static Future<void> savePlan(String? id, Map<String, dynamic> m) async {
+    id == null
+        ? await db.from('maintenance_plans').insert(m)
+        : await db.from('maintenance_plans').update(m).eq('id', id);
+  }
+
+  static Future<void> deletePlan(String id) => db.from('maintenance_plans').delete().eq('id', id);
+
+  // ------------------------------------------------------------ combustible
+  static Future<void> deleteFuel(String id) => db.from('fuel_logs').delete().eq('id', id);
+
+  // ------------------------------------------------------------ planilla
+  static Future<void> saveAdjustment(Map<String, dynamic> m) => db.from('payroll_adjustments').insert(m);
+  static Future<void> deleteAdjustment(String id) => db.from('payroll_adjustments').delete().eq('id', id);
+  static Future<void> createPeriod(DateTime start, DateTime end) =>
+      db.from('payroll_periods').insert({'start_date': dateKey(start), 'end_date': dateKey(end)});
+  static Future<void> deletePeriod(String id) => db.from('payroll_periods').delete().eq('id', id);
+  static Future<void> closePayroll(String id) => db.rpc('close_payroll', params: {'p_period': id});
+  static Future<void> reopenPayroll(String id) => db.rpc('reopen_payroll', params: {'p_period': id});
 
   static Future<void> saveMachine(String? id, Map<String, dynamic> m) async {
     id == null ? await db.from('machines').insert(m) : await db.from('machines').update(m).eq('id', id);
@@ -177,22 +209,47 @@ class Repo {
   }
 
   static Future<Map<String, dynamic>> _fetchOperatorRaw(String uid) async {
-    final asg = List<Map<String, dynamic>>.from(await db
-        .from('assignments')
-        .select()
-        .or('operator_id.eq.$uid,helper_id.eq.$uid')
-        .order('active', ascending: false)
-        .order('start_date', ascending: false));
-    if (asg.isEmpty) return {'assignments': [], 'projects': [], 'machines': [], 'reports': [], 'maintenance': [], 'people': {}};
+    final asg = List<Map<String, dynamic>>.from(
+      await db
+          .from('assignments')
+          .select()
+          .or('operator_id.eq.$uid,helper_id.eq.$uid')
+          .order('active', ascending: false)
+          .order('start_date', ascending: false),
+    );
+    final payroll = await Future.wait([
+      db.from('payroll_payments').select().eq('person_id', uid).order('created_at', ascending: false).limit(30),
+      db.from('payroll_periods').select().order('start_date', ascending: false).limit(30),
+      db.from('payroll_adjustments').select().eq('person_id', uid).order('adj_date', ascending: false).limit(60),
+    ]);
+    final pay = {'payments': payroll[0], 'periods': payroll[1], 'adjustments': payroll[2]};
+    if (asg.isEmpty) {
+      return {
+        'assignments': [],
+        'projects': [],
+        'machines': [],
+        'reports': [],
+        'maintenance': [],
+        'people': {},
+        ...pay,
+      };
+    }
     final pIds = asg.map((a) => a['project_id']).toSet().toList();
     final mIds = asg.map((a) => a['machine_id']).toSet().toList();
     final aIds = asg.map((a) => a['id'] as String).toList();
     final r = await Future.wait([
       db.from('projects').select().inFilter('id', pIds),
       db.from('machines').select().inFilter('id', mIds),
-      db.from('daily_reports').select().inFilter('assignment_id', aIds).order('report_date', ascending: false).limit(400),
+      db
+          .from('daily_reports')
+          .select()
+          .inFilter('assignment_id', aIds)
+          .order('report_date', ascending: false)
+          .limit(400),
       db.from('maintenance_logs').select().inFilter('machine_id', mIds).order('log_date', ascending: false).limit(60),
       Future.wait(aIds.map((id) => db.rpc('assignment_people', params: {'p_assignment': id}))),
+      db.from('maintenance_plans').select().inFilter('machine_id', mIds),
+      db.from('fuel_logs').select().inFilter('machine_id', mIds).order('log_date', ascending: false).limit(60),
     ]);
     final peopleRows = r[4];
     final people = <String, dynamic>{};
@@ -200,7 +257,17 @@ class Repo {
       final rows = peopleRows[i] as List;
       if (rows.isNotEmpty) people[aIds[i]] = [rows.first['operator_name'], rows.first['helper_name']];
     }
-    return {'assignments': asg, 'projects': r[0], 'machines': r[1], 'reports': r[2], 'maintenance': r[3], 'people': people};
+    return {
+      'assignments': asg,
+      'projects': r[0],
+      'machines': r[1],
+      'reports': r[2],
+      'maintenance': r[3],
+      'people': people,
+      'plans': r[5],
+      'fuel': r[6],
+      ...pay,
+    };
   }
 
   static Future<void> saveReport({
@@ -214,8 +281,10 @@ class Repo {
     double downtimeHours = 0,
     String? downtimeReason,
     bool payDay = true,
+    double? hourMeter,
   }) async {
     final m = {
+      'hour_meter': hourMeter,
       'downtime_hours': downtimeHours,
       'downtime_reason': downtimeHours > 0 ? downtimeReason : null,
       'pay_day': payDay,
@@ -237,16 +306,15 @@ class Repo {
     required String description,
     double? hourMeter,
     double cost = 0,
-  }) =>
-      db.from('maintenance_logs').insert({
-        'machine_id': machineId,
-        'project_id': projectId,
-        'log_date': dateKey(date),
-        'type': type,
-        'description': description,
-        'hour_meter': hourMeter,
-        'cost': cost,
-      });
+  }) => db.from('maintenance_logs').insert({
+    'machine_id': machineId,
+    'project_id': projectId,
+    'log_date': dateKey(date),
+    'type': type,
+    'description': description,
+    'hour_meter': hourMeter,
+    'cost': cost,
+  });
 
   static Future<void> deleteMaintenance(String id) => db.from('maintenance_logs').delete().eq('id', id);
 }
@@ -260,6 +328,11 @@ class AdminData {
   final List<MaintenanceLog> maintenance;
   final List<Expense> expenses;
   final CompanySettings settings;
+  final List<MaintenancePlan> plans;
+  final List<FuelLog> fuel;
+  final List<PayrollAdjustment> adjustments;
+  final List<PayrollPeriod> periods;
+  final List<PayrollPayment> payments;
   AdminData({
     required this.profiles,
     required this.machines,
@@ -269,6 +342,11 @@ class AdminData {
     required this.maintenance,
     required this.expenses,
     required this.settings,
+    this.plans = const [],
+    this.fuel = const [],
+    this.adjustments = const [],
+    this.periods = const [],
+    this.payments = const [],
   });
   late final Map<String, Profile> profileById = {for (final p in profiles) p.id: p};
   late final Map<String, Machine> machineById = {for (final m in machines) m.id: m};
@@ -277,6 +355,11 @@ class AdminData {
 }
 
 class OperatorData {
+  final List<MaintenancePlan> plans;
+  final List<FuelLog> fuel;
+  final List<PayrollPayment> payments;
+  final List<PayrollPeriod> periods;
+  final List<PayrollAdjustment> adjustments;
   final DateTime? cachedAt; // si viene de la copia guardada (sin señal)
   final List<Assignment> assignments;
   final Map<String, Project> projects;
@@ -292,6 +375,11 @@ class OperatorData {
     required this.maintenance,
     required this.people,
     this.cachedAt,
+    this.plans = const [],
+    this.fuel = const [],
+    this.payments = const [],
+    this.periods = const [],
+    this.adjustments = const [],
   });
 
   factory OperatorData.fromRaw(Map<String, dynamic> raw, {DateTime? cachedAt}) {
@@ -310,6 +398,11 @@ class OperatorData {
       maintenance: l('maintenance').map((m) => MaintenanceLog.fromMap(m)).toList(),
       people: people,
       cachedAt: cachedAt,
+      plans: l('plans').map(MaintenancePlan.fromMap).toList(),
+      fuel: l('fuel').map((m) => FuelLog.fromMap(m)).toList(),
+      payments: l('payments').map(PayrollPayment.fromMap).toList(),
+      periods: l('periods').map(PayrollPeriod.fromMap).toList(),
+      adjustments: l('adjustments').map(PayrollAdjustment.fromMap).toList(),
     );
   }
 }

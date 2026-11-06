@@ -61,7 +61,12 @@ void main() {
     final o = make();
     await o.init('op1');
     await o.saveReport(assignment: asg, date: DateTime(2026, 11, 6), units: 210, helperPresent: true);
-    await o.addMaintenance(machineId: 'm1', date: DateTime(2026, 11, 6), type: 'engrase', description: 'Engrase general');
+    await o.addMaintenance(
+      machineId: 'm1',
+      date: DateTime(2026, 11, 6),
+      type: 'engrase',
+      description: 'Engrase general',
+    );
     expect(o.pendingCount, 2);
     server.online = true;
     conn.add([ConnectivityResult.mobile]);
@@ -79,8 +84,15 @@ void main() {
     await o.init('op1');
     await o.saveReport(assignment: asg, date: DateTime(2026, 11, 6), units: 150, helperPresent: true);
     final pending = o.pendingReports().single;
-    await o.saveReport(existing: pending, assignment: asg, date: DateTime(2026, 11, 6), units: 205, helperPresent: false,
-        downtimeHours: 2, downtimeReason: 'lluvia');
+    await o.saveReport(
+      existing: pending,
+      assignment: asg,
+      date: DateTime(2026, 11, 6),
+      units: 205,
+      helperPresent: false,
+      downtimeHours: 2,
+      downtimeReason: 'lluvia',
+    );
     expect(o.items.length, 1);
     final r = o.pendingReports().single;
     expect(r.units, 205);
@@ -135,9 +147,23 @@ void main() {
     final o = make();
     await o.init('op1');
     final serverReport = DailyReport(
-        id: 'srv-1', assignmentId: 'a1', projectId: 'p1', machineId: 'm1', date: DateTime(2026, 11, 6), units: 180,
-        helperPresent: true, operatorPay: 300, helperPay: 180);
-    await o.saveReport(existing: serverReport, assignment: asg, date: DateTime(2026, 11, 6), units: 220, helperPresent: true);
+      id: 'srv-1',
+      assignmentId: 'a1',
+      projectId: 'p1',
+      machineId: 'm1',
+      date: DateTime(2026, 11, 6),
+      units: 180,
+      helperPresent: true,
+      operatorPay: 300,
+      helperPay: 180,
+    );
+    await o.saveReport(
+      existing: serverReport,
+      assignment: asg,
+      date: DateTime(2026, 11, 6),
+      units: 220,
+      helperPresent: true,
+    );
     expect(o.items.single.op, 'update');
     expect(o.items.single.id, 'srv-1');
     final merged = o.mergeReports([serverReport]);
@@ -153,8 +179,18 @@ void main() {
 
   test('resumen de paros por motivo', () {
     DailyReport rep(int day, int units, double h, String? reason) => DailyReport(
-        id: '$day', assignmentId: 'a1', projectId: 'p1', machineId: 'm1', date: DateTime(2026, 11, day), units: units,
-        helperPresent: true, operatorPay: 0, helperPay: 0, downtimeHours: h, downtimeReason: reason);
+      id: '$day',
+      assignmentId: 'a1',
+      projectId: 'p1',
+      machineId: 'm1',
+      date: DateTime(2026, 11, day),
+      units: units,
+      helperPresent: true,
+      operatorPay: 0,
+      helperPay: 0,
+      downtimeHours: h,
+      downtimeReason: reason,
+    );
     final s = downtimeSummary([
       rep(2, 200, 0, null),
       rep(3, 0, 9, 'lluvia'),
@@ -168,5 +204,51 @@ void main() {
     expect(s.top!.hours, 12);
     expect(s.top!.zeroDays, 1);
     expect(s.clientHours, 6);
+  });
+
+  test('combustible y fotos esperan sin señal; la ruta de la foto no cambia al corregir', () async {
+    final o = make();
+    await o.init('op1');
+    final sent = await o.addFuel(
+      machineId: 'm1',
+      projectId: 'p1',
+      date: DateTime(2026, 11, 6),
+      gallons: 15,
+      costGtq: 540,
+      localPhotos: ['/tel/ticket.jpg'],
+    );
+    expect(sent, false);
+    final fuel = o.pendingFuel().single;
+    expect(fuel.gallons, 15);
+    expect(fuel.localPhotos, ['/tel/ticket.jpg']);
+    final pend = (o.items.single.payload['_photos_pending'] as List).single as Map;
+    expect(pend['remote'], startsWith('f/m1/${o.items.single.id}-'));
+
+    await o.saveReport(
+      assignment: asg,
+      date: DateTime(2026, 11, 6),
+      units: 200,
+      helperPresent: true,
+      localPhotos: ['/tel/a.jpg'],
+    );
+    final first = ((o.items.last.payload['_photos_pending'] as List).single as Map)['remote'];
+    final pr = o.pendingReports().single;
+    await o.saveReport(
+      existing: pr,
+      assignment: asg,
+      date: DateTime(2026, 11, 6),
+      units: 210,
+      helperPresent: true,
+      localPhotos: [...pr.localPhotos, '/tel/b.jpg'],
+      hourMeter: 1250,
+    );
+    final photos = (o.items.last.payload['_photos_pending'] as List).cast<Map>();
+    expect(photos.length, 2);
+    expect(photos.first['remote'], first); // misma ruta: si ya se subió no se duplica
+    expect(photos.first['remote'], startsWith('r/a1/'));
+    expect(o.pendingReports().single.hourMeter, 1250);
+    server.online = true;
+    await o.sync();
+    expect(server.sent.map((e) => e.kind), ['fuel', 'report']);
   });
 }

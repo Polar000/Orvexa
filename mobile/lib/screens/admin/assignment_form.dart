@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+
 import '../../data.dart';
 import '../../models.dart';
 import '../../theme.dart';
@@ -34,6 +35,7 @@ class _AssignmentFormState extends State<AssignmentForm> {
     final n = (widget.store.data?.assignments.where((x) => x.projectId == p.id && x.active).length ?? 0) + 1;
     return (p.dailyTarget / n).ceil().toString();
   }
+
   bool _busy = false;
 
   @override
@@ -55,13 +57,18 @@ class _AssignmentFormState extends State<AssignmentForm> {
     if (!_form.currentState!.validate()) return;
     final m = d.machineById[_machine]!;
     // Avisar si la máquina u operador ya están ocupados en otro proyecto
-    final busy = d.assignments.where((x) =>
-        x.active && x.id != a?.id && (x.machineId == _machine || (x.operatorId != null && x.operatorId == _operator)));
+    final busy = d.assignments.where(
+      (x) =>
+          x.active && x.id != a?.id && (x.machineId == _machine || (x.operatorId != null && x.operatorId == _operator)),
+    );
     if (busy.isNotEmpty) {
       final names = busy.map((x) => d.projectById[x.projectId]?.name ?? '').toSet().join(', ');
-      final go = await confirm(context, 'Ya está asignado',
-          'La máquina o el operador tienen una asignación activa en: $names. ¿Asignar de todos modos?',
-          action: 'Asignar');
+      final go = await confirm(
+        context,
+        'Ya está asignado',
+        'La máquina o el operador tienen una asignación activa en: $names. ¿Asignar de todos modos?',
+        action: 'Asignar',
+      );
       if (!go || !mounted) return;
     }
     setState(() => _busy = true);
@@ -94,79 +101,90 @@ class _AssignmentFormState extends State<AssignmentForm> {
     final operators = {
       for (final p in d.profiles.where((p) => p.active && p.role != UserRole.ayudante)) p.id: p.display,
     };
-    final helpers = {
-      for (final p in d.profiles.where((p) => p.active && p.role != UserRole.admin)) p.id: p.display,
-    };
+    final helpers = {for (final p in d.profiles.where((p) => p.active && p.role != UserRole.admin)) p.id: p.display};
     final machines = {
       for (final m in d.machines.where((m) => m.status != 'fuera_servicio' || m.id == _machine))
         m.id: '${m.label} · ${machineTypeLabels[m.type]} · ${machineStatusLabels[m.status]}',
     };
-    final daily = (parseNum(_opPay.text) ?? 0) + (machine?.needsHelper == true && _helper != null ? (parseNum(_hpPay.text) ?? 0) : 0);
+    final daily =
+        (parseNum(_opPay.text) ?? 0) +
+        (machine?.needsHelper == true && _helper != null ? (parseNum(_hpPay.text) ?? 0) : 0);
 
     return Scaffold(
       appBar: AppBar(title: Text(a == null ? 'Asignar máquina' : 'Editar asignación')),
       body: Form(
         key: _form,
         onChanged: () => setState(() {}),
-        child: ListView(padding: const EdgeInsets.all(16), children: [
-          Text(widget.project.name, style: Theme.of(context).textTheme.titleLarge),
-          const SizedBox(height: 16),
-          if (machines.isEmpty)
-            const Padding(
-              padding: EdgeInsets.only(bottom: 12),
-              child: Text('Primero agrega una máquina en la pestaña Máquinas.', style: TextStyle(color: Ox.red)),
+        child: ListView(
+          padding: const EdgeInsets.all(16),
+          children: [
+            Text(widget.project.name, style: Theme.of(context).textTheme.titleLarge),
+            const SizedBox(height: 16),
+            if (machines.isEmpty)
+              const Padding(
+                padding: EdgeInsets.only(bottom: 12),
+                child: Text('Primero agrega una máquina en la pestaña Máquinas.', style: TextStyle(color: Ox.red)),
+              ),
+            Dropdown<String>(
+              label: 'Máquina',
+              value: _machine,
+              items: machines,
+              required: true,
+              onChanged: (v) => setState(() {
+                _machine = v;
+                final m = v == null ? null : d.machineById[v];
+                if (m != null) _applyMachineDefaults(m);
+              }),
             ),
-          Dropdown<String>(
-            label: 'Máquina',
-            value: _machine,
-            items: machines,
-            required: true,
-            onChanged: (v) => setState(() {
-              _machine = v;
-              final m = v == null ? null : d.machineById[v];
-              if (m != null) _applyMachineDefaults(m);
-            }),
-          ),
-          if (operators.isEmpty)
-            const Padding(
-              padding: EdgeInsets.only(bottom: 12),
-              child: Text('No hay operadores. Créalos en la pestaña Personal.', style: TextStyle(color: Ox.red)),
+            if (operators.isEmpty)
+              const Padding(
+                padding: EdgeInsets.only(bottom: 12),
+                child: Text('No hay operadores. Créalos en la pestaña Personal.', style: TextStyle(color: Ox.red)),
+              ),
+            Dropdown<String>(
+              label: 'Operador',
+              value: _operator,
+              items: operators,
+              required: true,
+              onChanged: (v) => setState(() => _operator = v),
             ),
-          Dropdown<String>(
-            label: 'Operador',
-            value: _operator,
-            items: operators,
-            required: true,
-            onChanged: (v) => setState(() => _operator = v),
-          ),
-          Field(_opPay, 'Pago diario al operador', number: true, decimal: true, prefix: 'Q ', required: true),
-          if (machine?.needsHelper == true) ...[
-            const SectionTitle('Ayudante (hincadora)'),
-            Dropdown<String?>(
-              label: 'Ayudante',
-              value: _helper,
-              items: {null: 'Sin ayudante', ...helpers},
-              onChanged: (v) => setState(() => _helper = v),
+            Field(_opPay, 'Pago diario al operador', number: true, decimal: true, prefix: 'Q ', required: true),
+            if (machine?.needsHelper == true) ...[
+              const SectionTitle('Ayudante (hincadora)'),
+              Dropdown<String?>(
+                label: 'Ayudante',
+                value: _helper,
+                items: {null: 'Sin ayudante', ...helpers},
+                onChanged: (v) => setState(() => _helper = v),
+              ),
+              if (_helper != null) Field(_hpPay, 'Pago diario al ayudante', number: true, decimal: true, prefix: 'Q '),
+            ],
+            Field(
+              _target,
+              'Meta diaria de esta máquina',
+              number: true,
+              suffix: widget.project.unitName,
+              hint: widget.project.dailyTarget > 0 ? 'Meta del proyecto: ${widget.project.dailyTarget}/día' : null,
             ),
-            if (_helper != null) Field(_hpPay, 'Pago diario al ayudante', number: true, decimal: true, prefix: 'Q '),
+            DateField(label: 'Inicia', value: _start, onChanged: (v) => setState(() => _start = v)),
+            Card(
+              color: Ox.yellow.withValues(alpha: 0.08),
+              child: ListTile(
+                title: const Text('Costo de planilla por día'),
+                subtitle: Text('Solo los días con reporte · ≈ ${money(d.settings.toUsd(daily))}'),
+                trailing: Text(
+                  quetzal(daily),
+                  style: Theme.of(context).textTheme.titleMedium?.copyWith(color: Ox.yellow),
+                ),
+              ),
+            ),
+            const SizedBox(height: 16),
+            FilledButton(
+              onPressed: _busy ? null : () => _save(d),
+              child: _busy ? const CircularProgressIndicator(color: Ox.black) : const Text('GUARDAR ASIGNACIÓN'),
+            ),
           ],
-          Field(_target, 'Meta diaria de esta máquina', number: true, suffix: widget.project.unitName,
-              hint: widget.project.dailyTarget > 0 ? 'Meta del proyecto: ${widget.project.dailyTarget}/día' : null),
-          DateField(label: 'Inicia', value: _start, onChanged: (v) => setState(() => _start = v)),
-          Card(
-            color: Ox.yellow.withValues(alpha: 0.08),
-            child: ListTile(
-              title: const Text('Costo de planilla por día'),
-              subtitle: Text('Solo los días con reporte · ≈ ${money(d.settings.toUsd(daily))}'),
-              trailing: Text(quetzal(daily), style: Theme.of(context).textTheme.titleMedium?.copyWith(color: Ox.yellow)),
-            ),
-          ),
-          const SizedBox(height: 16),
-          FilledButton(
-            onPressed: _busy ? null : () => _save(d),
-            child: _busy ? const CircularProgressIndicator(color: Ox.black) : const Text('GUARDAR ASIGNACIÓN'),
-          ),
-        ]),
+        ),
       ),
     );
   }

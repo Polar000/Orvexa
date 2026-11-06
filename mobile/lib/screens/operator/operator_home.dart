@@ -4,8 +4,15 @@ import '../../calc.dart';
 import '../../data.dart';
 import '../../models.dart';
 import '../../offline.dart';
+import '../../pdf_docs.dart';
+import '../../photos.dart';
+import '../../reminders.dart';
+
+import 'package:printing/printing.dart';
+
 import '../../theme.dart';
 import '../../widgets.dart';
+import 'fuel_form.dart';
 import 'maintenance_form.dart';
 import 'report_form.dart';
 
@@ -28,6 +35,7 @@ class _OperatorHomeState extends State<OperatorHome> {
   void initState() {
     super.initState();
     _f = (widget.loader ?? Repo.loadOperator)(widget.me.id);
+    _f.then(_scheduleReminders, onError: (_) {});
     outbox.addListener(_onOutbox);
     outbox.init(widget.me.id);
   }
@@ -58,12 +66,30 @@ class _OperatorHomeState extends State<OperatorHome> {
     maintenance: [...outbox.pendingMaintenance(), ...d.maintenance],
     people: d.people,
     cachedAt: d.cachedAt,
+    plans: d.plans,
+    fuel: [...outbox.pendingFuel(), ...d.fuel],
+    payments: d.payments,
+    periods: d.periods,
+    adjustments: d.adjustments,
   );
+
+  /// Recordatorio de las 5 pm si no ha reportado (se reprograma cada vez que abre la app o reporta).
+  void _scheduleReminders(OperatorData raw) {
+    final d = _merged(raw);
+    final today = dayOnly(DateTime.now());
+    final mine = d.assignments.where((a) => a.active && a.operatorId == widget.me.id).toList();
+    final reported =
+        mine.isNotEmpty && mine.every((a) => d.reports.any((r) => r.assignmentId == a.id && dayOnly(r.date) == today));
+    final wd = mine.isEmpty ? 6 : (d.projects[mine.first.projectId]?.workDaysPerWeek ?? 6);
+    Reminders.scheduleOperator(hasActiveAssignment: mine.isNotEmpty, reportedToday: reported, workDaysPerWeek: wd);
+  }
 
   Future<void> _reload() async {
     final f = (widget.loader ?? Repo.loadOperator)(widget.me.id);
-    setState(() => _f = f);
-    await f;
+    setState(() {
+      _f = f;
+    });
+    _scheduleReminders(await f);
   }
 
   @override
@@ -97,7 +123,10 @@ class _OperatorHomeState extends State<OperatorHome> {
               final msg = n > 0
                   ? 'Tienes $n registro${n == 1 ? '' : 's'} sin enviar. Se guardan en este teléfono y se enviarán cuando vuelvas a entrar con tu usuario. ¿Salir?'
                   : '¿Salir de la app?';
-              if (await confirm(context, 'Cerrar sesión', msg, action: 'Salir')) await db.auth.signOut();
+              if (await confirm(context, 'Cerrar sesión', msg, action: 'Salir')) {
+                await Reminders.cancelAll();
+                await db.auth.signOut();
+              }
             },
           ),
         ],
@@ -108,10 +137,11 @@ class _OperatorHomeState extends State<OperatorHome> {
         destinations: const [
           NavigationDestination(icon: Icon(Icons.today_outlined), selectedIcon: Icon(Icons.today), label: 'Hoy'),
           NavigationDestination(icon: Icon(Icons.history), label: 'Historial'),
+          NavigationDestination(icon: Icon(Icons.build_outlined), selectedIcon: Icon(Icons.build), label: 'Máquina'),
           NavigationDestination(
-            icon: Icon(Icons.build_outlined),
-            selectedIcon: Icon(Icons.build),
-            label: 'Mantenimiento',
+            icon: Icon(Icons.payments_outlined),
+            selectedIcon: Icon(Icons.payments),
+            label: 'Pagos',
           ),
         ],
       ),
@@ -125,6 +155,7 @@ class _OperatorHomeState extends State<OperatorHome> {
                 if (snap.hasError) return ErrorRetry(snap.error!, _reload);
                 if (!snap.hasData) return const Center(child: CircularProgressIndicator());
                 final d = _merged(snap.data!);
+                if (_tab == 3) return RefreshIndicator(onRefresh: _refresh, child: _payments(d));
                 if (d.assignments.isEmpty) {
                   return RefreshIndicator(
                     onRefresh: _refresh,
@@ -443,9 +474,139 @@ class _OperatorHomeState extends State<OperatorHome> {
               icon: const Icon(Icons.build_outlined, size: 18),
               label: const Text('Registrar mantenimiento'),
             ),
+            const SizedBox(height: 10),
+            OutlinedButton.icon(
+              onPressed: () => _openFuel(d, a),
+              icon: const Icon(Icons.local_gas_station_outlined, size: 18),
+              label: const Text('Registrar combustible'),
+            ),
+            ..._planAlerts(d, a.machineId),
           ],
         ),
       ),
+    );
+  }
+
+  /// Avisos de mantenimiento por horómetro de la máquina (solo los próximos o vencidos).
+  List<Widget> _planAlerts(OperatorData d, String machineId) {
+    final st = planStatuses(
+      d.plans.where((p) => p.machineId == machineId),
+      d.machines,
+    ).where((x) => x.state != PlanState.ok).toList();
+    if (st.isEmpty) return const [];
+    return [
+      const SizedBox(height: 12),
+      for (final x in st)
+        Padding(
+          padding: const EdgeInsets.only(bottom: 6),
+          child: Row(
+            children: [
+              Icon(
+                x.state == PlanState.overdue ? Icons.warning_amber : Icons.schedule,
+                size: 18,
+                color: x.state == PlanState.overdue ? Ox.red : Ox.yellow,
+              ),
+              const SizedBox(width: 8),
+              Expanded(
+                child: Text(
+                  x.text,
+                  style: TextStyle(
+                    color: x.state == PlanState.overdue ? Ox.red : Ox.yellow,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ),
+    ];
+  }
+
+  Future<void> _openFuel(OperatorData d, Assignment a) async {
+    final ok = await Navigator.push<bool>(
+      context,
+      MaterialPageRoute(
+        builder: (_) => FuelForm(machine: d.machines[a.machineId]!, projectId: a.projectId, outbox: outbox),
+      ),
+    );
+    if (ok == true) _reload();
+  }
+
+  Widget _payments(OperatorData d) {
+    final periods = {for (final p in d.periods) p.id: p};
+    final pendingAdj = d.adjustments
+        .where(
+          (a) => !d.payments.any((p) {
+            final per = periods[p.periodId];
+            return per != null && !dayOnly(a.date).isBefore(per.start) && !dayOnly(a.date).isAfter(per.end);
+          }),
+        )
+        .toList();
+    return ListView(
+      padding: const EdgeInsets.all(16),
+      children: [
+        const SectionTitle('Mis pagos'),
+        if (d.payments.isEmpty)
+          const Padding(
+            padding: EdgeInsets.all(12),
+            child: Text(
+              'Aún no hay pagos cerrados. Aparecerán aquí cuando el administrador cierre la planilla.',
+              style: TextStyle(color: Ox.lightGray),
+            ),
+          ),
+        for (final pay in d.payments)
+          if (periods[pay.periodId] != null)
+            Padding(
+              padding: const EdgeInsets.only(bottom: 8),
+              child: Card(
+                child: ListTile(
+                  title: Text('${fechaCorta(periods[pay.periodId]!.start)} al ${fecha(periods[pay.periodId]!.end)}'),
+                  subtitle: Text(
+                    [
+                      '${pay.days} días · ${quetzal(pay.gross)}',
+                      if (pay.bonuses > 0) 'bono ${quetzal(pay.bonuses)}',
+                      if (pay.advances > 0) 'adelanto -${quetzal(pay.advances)}',
+                      if (pay.deductions > 0) 'descuento -${quetzal(pay.deductions)}',
+                    ].join(' · '),
+                  ),
+                  trailing: Column(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    crossAxisAlignment: CrossAxisAlignment.end,
+                    children: [
+                      Text(
+                        quetzal(pay.net),
+                        style: const TextStyle(fontWeight: FontWeight.w800, color: Ox.yellow),
+                      ),
+                      const Text('Ver recibo', style: TextStyle(fontSize: 11, color: Ox.lightGray)),
+                    ],
+                  ),
+                  onTap: () async {
+                    final per = periods[pay.periodId]!;
+                    final adj = d.adjustments
+                        .where((a) => !dayOnly(a.date).isBefore(per.start) && !dayOnly(a.date).isAfter(per.end))
+                        .toList();
+                    final bytes = await payrollReceiptPdf(pay, per, adjustments: adj);
+                    await Printing.sharePdf(bytes: bytes, filename: 'recibo_${dateKey(per.end)}.pdf');
+                  },
+                ),
+              ),
+            ),
+        if (pendingAdj.isNotEmpty) ...[
+          const SectionTitle('Adelantos y ajustes por liquidar'),
+          for (final a in pendingAdj)
+            Card(
+              child: ListTile(
+                dense: true,
+                title: Text('${adjustmentKindLabels[a.kind]} · ${fecha(a.date)}'),
+                subtitle: (a.note ?? '').isEmpty ? null : Text(a.note!),
+                trailing: Text(
+                  '${a.kind == 'bono' ? '+' : '-'}${quetzal(a.amount)}',
+                  style: const TextStyle(fontWeight: FontWeight.w700),
+                ),
+              ),
+            ),
+        ],
+      ],
     );
   }
 
@@ -499,27 +660,39 @@ class _OperatorHomeState extends State<OperatorHome> {
             _canReport(a) &&
             !dayOnly(r.date).isBefore(dayOnly(DateTime.now()).subtract(const Duration(days: 2)));
         return Card(
-          child: ListTile(
-            onTap: editable ? () => _openReport(d, a, existing: r) : null,
-            title: Text(diaSemana(r.date)),
-            subtitle: Text(
-              [
-                '${p?.name ?? ''} · ${m?.name ?? ''}',
-                if (r.hasDowntime)
-                  'Paro ${numText(r.downtimeHours)} h · ${downtimeReasonLabels[r.downtimeReason] ?? ''}',
-                if (r.notes != null && r.notes!.isNotEmpty) r.notes!,
-                if (r.pending) '⏳ Pendiente de enviar',
-              ].join('\n'),
-            ),
-            isThreeLine: r.hasDowntime || r.pending || (r.notes != null && r.notes!.isNotEmpty),
-            trailing: Column(
-              mainAxisAlignment: MainAxisAlignment.center,
-              crossAxisAlignment: CrossAxisAlignment.end,
-              children: [
-                Text(number(r.units), style: Theme.of(context).textTheme.titleLarge?.copyWith(color: Ox.yellow)),
-                Text(p?.unitName ?? '', style: const TextStyle(fontSize: 11, color: Ox.lightGray)),
-              ],
-            ),
+          child: Column(
+            children: [
+              ListTile(
+                onTap: editable ? () => _openReport(d, a, existing: r) : null,
+                title: Text(diaSemana(r.date)),
+                subtitle: Text(
+                  [
+                    '${p?.name ?? ''} · ${m?.name ?? ''}',
+                    if (r.hasDowntime)
+                      'Paro ${numText(r.downtimeHours)} h · ${downtimeReasonLabels[r.downtimeReason] ?? ''}',
+                    if (r.notes != null && r.notes!.isNotEmpty) r.notes!,
+                    if (r.pending) '⏳ Pendiente de enviar',
+                  ].join('\n'),
+                ),
+                isThreeLine: r.hasDowntime || r.pending || (r.notes != null && r.notes!.isNotEmpty),
+                trailing: Column(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  crossAxisAlignment: CrossAxisAlignment.end,
+                  children: [
+                    Text(number(r.units), style: Theme.of(context).textTheme.titleLarge?.copyWith(color: Ox.yellow)),
+                    Text(p?.unitName ?? '', style: const TextStyle(fontSize: 11, color: Ox.lightGray)),
+                  ],
+                ),
+              ),
+              if (r.photos.isNotEmpty || r.localPhotos.isNotEmpty)
+                Padding(
+                  padding: const EdgeInsets.fromLTRB(16, 0, 16, 12),
+                  child: Align(
+                    alignment: Alignment.centerLeft,
+                    child: PhotoStrip(photos: r.photos, local: r.localPhotos),
+                  ),
+                ),
+            ],
           ),
         );
       },
@@ -540,7 +713,68 @@ class _OperatorHomeState extends State<OperatorHome> {
               label: Text('NUEVO · ${d.machines[a.machineId]?.name ?? ''}'.toUpperCase()),
             ),
           ),
-        const SectionTitle('Historial de la máquina'),
+        for (final a in active) ...[
+          if (d.plans.any((p) => p.machineId == a.machineId)) ...[
+            SectionTitle('Mantenimiento por horómetro · ${d.machines[a.machineId]?.name ?? ''}'),
+            Card(
+              child: Column(
+                children: [
+                  for (final x in planStatuses(d.plans.where((p) => p.machineId == a.machineId), d.machines))
+                    ListTile(
+                      dense: true,
+                      leading: Icon(
+                        x.state == PlanState.overdue
+                            ? Icons.warning_amber
+                            : (x.state == PlanState.soon ? Icons.schedule : Icons.check_circle_outline),
+                        color: x.state == PlanState.overdue
+                            ? Ox.red
+                            : (x.state == PlanState.soon ? Ox.yellow : Ox.green),
+                      ),
+                      title: Text(x.plan.label),
+                      subtitle: Text(
+                        'Cada ${numText(x.plan.intervalHours)} h · próximo a las ${numText(x.plan.nextAt)} h',
+                      ),
+                      trailing: Text(
+                        x.remaining <= 0 ? 'Vencido' : '${numText(x.remaining.roundToDouble())} h',
+                        style: TextStyle(
+                          fontWeight: FontWeight.w700,
+                          color: x.state == PlanState.overdue ? Ox.red : null,
+                        ),
+                      ),
+                    ),
+                ],
+              ),
+            ),
+          ],
+        ],
+        if (active.isNotEmpty)
+          Padding(
+            padding: const EdgeInsets.only(top: 12),
+            child: OutlinedButton.icon(
+              onPressed: () => _openFuel(d, active.first),
+              icon: const Icon(Icons.local_gas_station_outlined),
+              label: const Text('Registrar combustible'),
+            ),
+          ),
+        if (d.fuel.isNotEmpty) ...[
+          const SectionTitle('Combustible'),
+          for (final f in d.fuel.take(15))
+            Card(
+              child: ListTile(
+                dense: true,
+                leading: const Icon(Icons.local_gas_station_outlined, color: Ox.yellow),
+                title: Text('${numText(f.gallons)} gal · ${quetzal(f.costGtq)}'),
+                subtitle: Text(
+                  [
+                    '${fecha(f.date)} · ${d.machines[f.machineId]?.name ?? ''}',
+                    if (f.hourMeter != null) 'Horómetro ${numText(f.hourMeter)} h',
+                    if (f.pending) '⏳ Pendiente de enviar',
+                  ].join('\n'),
+                ),
+              ),
+            ),
+        ],
+        const SectionTitle('Historial de mantenimiento'),
         if (d.maintenance.isEmpty)
           const Padding(
             padding: EdgeInsets.all(24),
@@ -550,18 +784,30 @@ class _OperatorHomeState extends State<OperatorHome> {
           Padding(
             padding: const EdgeInsets.only(bottom: 8),
             child: Card(
-              child: ListTile(
-                leading: const Icon(Icons.build_circle_outlined, color: Ox.yellow),
-                title: Text(maintenanceTypeLabels[l.type] ?? l.type),
-                subtitle: Text(
-                  [
-                    '${fecha(l.date)} · ${d.machines[l.machineId]?.name ?? ''}',
-                    if (l.description.isNotEmpty) l.description,
-                    if (l.hourMeter != null) 'Horómetro: ${numText(l.hourMeter)} h',
-                    if (l.pending) '⏳ Pendiente de enviar',
-                  ].join('\n'),
-                ),
-                isThreeLine: true,
+              child: Column(
+                children: [
+                  ListTile(
+                    leading: const Icon(Icons.build_circle_outlined, color: Ox.yellow),
+                    title: Text(maintenanceTypeLabels[l.type] ?? l.type),
+                    subtitle: Text(
+                      [
+                        '${fecha(l.date)} · ${d.machines[l.machineId]?.name ?? ''}',
+                        if (l.description.isNotEmpty) l.description,
+                        if (l.hourMeter != null) 'Horómetro: ${numText(l.hourMeter)} h',
+                        if (l.pending) '⏳ Pendiente de enviar',
+                      ].join('\n'),
+                    ),
+                    isThreeLine: true,
+                  ),
+                  if (l.photos.isNotEmpty || l.localPhotos.isNotEmpty)
+                    Padding(
+                      padding: const EdgeInsets.fromLTRB(16, 0, 16, 12),
+                      child: Align(
+                        alignment: Alignment.centerLeft,
+                        child: PhotoStrip(photos: l.photos, local: l.localPhotos),
+                      ),
+                    ),
+                ],
               ),
             ),
           ),

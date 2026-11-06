@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
+
 import '../../data.dart';
 import '../../models.dart';
+import '../../offline.dart';
 import '../../theme.dart';
 import '../../widgets.dart';
 import 'dashboard_tab.dart';
@@ -36,16 +38,16 @@ class StoreBuilder extends StatelessWidget {
   const StoreBuilder({super.key, required this.store, required this.builder});
   @override
   Widget build(BuildContext context) => ListenableBuilder(
-        listenable: store,
-        builder: (context, _) {
-          final d = store.data;
-          if (d == null) {
-            if (store.error != null) return ErrorRetry(store.error!, store.reload);
-            return const Center(child: CircularProgressIndicator());
-          }
-          return builder(context, d);
-        },
-      );
+    listenable: store,
+    builder: (context, _) {
+      final d = store.data;
+      if (d == null) {
+        if (store.error != null) return ErrorRetry(store.error!, store.reload);
+        return const Center(child: CircularProgressIndicator());
+      }
+      return builder(context, d);
+    },
+  );
 }
 
 class AdminShell extends StatefulWidget {
@@ -63,7 +65,10 @@ class _AdminShellState extends State<AdminShell> {
   @override
   void initState() {
     super.initState();
-    if (widget.store == null) store.reload();
+    if (widget.store == null) {
+      store.reload();
+      Outbox.instance.init(widget.me.id); // mantenimiento y combustible con fotos también desde el admin
+    }
   }
 
   @override
@@ -85,11 +90,7 @@ class _AdminShellState extends State<AdminShell> {
     ];
     return Scaffold(
       appBar: AppBar(
-        title: Row(children: [
-          const Logo(size: 30),
-          const SizedBox(width: 10),
-          Text(_titles[_tab]),
-        ]),
+        title: Row(children: [const Logo(size: 30), const SizedBox(width: 10), Text(_titles[_tab])]),
         actions: [
           ListenableBuilder(
             listenable: store,
@@ -119,13 +120,27 @@ class _AdminShellState extends State<AdminShell> {
         selectedIndex: _tab,
         onDestinationSelected: (i) => setState(() => _tab = i),
         destinations: const [
-          NavigationDestination(icon: Icon(Icons.insights_outlined), selectedIcon: Icon(Icons.insights), label: 'Panel'),
-          NavigationDestination(icon: Icon(Icons.folder_outlined), selectedIcon: Icon(Icons.folder), label: 'Proyectos'),
           NavigationDestination(
-              icon: Icon(Icons.precision_manufacturing_outlined), selectedIcon: Icon(Icons.precision_manufacturing), label: 'Máquinas'),
+            icon: Icon(Icons.insights_outlined),
+            selectedIcon: Icon(Icons.insights),
+            label: 'Panel',
+          ),
+          NavigationDestination(
+            icon: Icon(Icons.folder_outlined),
+            selectedIcon: Icon(Icons.folder),
+            label: 'Proyectos',
+          ),
+          NavigationDestination(
+            icon: Icon(Icons.precision_manufacturing_outlined),
+            selectedIcon: Icon(Icons.precision_manufacturing),
+            label: 'Máquinas',
+          ),
           NavigationDestination(icon: Icon(Icons.groups_outlined), selectedIcon: Icon(Icons.groups), label: 'Personal'),
           NavigationDestination(
-              icon: Icon(Icons.account_balance_wallet_outlined), selectedIcon: Icon(Icons.account_balance_wallet), label: 'Finanzas'),
+            icon: Icon(Icons.account_balance_wallet_outlined),
+            selectedIcon: Icon(Icons.account_balance_wallet),
+            label: 'Finanzas',
+          ),
         ],
       ),
     );
