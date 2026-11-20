@@ -99,9 +99,13 @@ class _AssignmentFormState extends State<AssignmentForm> {
     final d = widget.store.data!;
     final machine = _machine == null ? null : d.machineById[_machine];
     final operators = {
-      for (final p in d.profiles.where((p) => p.active && p.role != UserRole.ayudante)) p.id: p.display,
+      for (final p in d.profiles.where((p) => p.active && (p.role == UserRole.operador || p.role == UserRole.admin)))
+        p.id: p.display,
     };
-    final helpers = {for (final p in d.profiles.where((p) => p.active && p.role != UserRole.admin)) p.id: p.display};
+    final helpers = {
+      for (final p in d.profiles.where((p) => p.active && (p.role == UserRole.ayudante || p.role == UserRole.operador)))
+        p.id: p.display,
+    };
     final machines = {
       for (final m in d.machines.where((m) => m.status != 'fuera_servicio' || m.id == _machine))
         m.id: '${m.label} · ${machineTypeLabels[m.type]} · ${machineStatusLabels[m.status]}',

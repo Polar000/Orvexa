@@ -162,6 +162,24 @@ class _FinanceTabState extends State<FinanceTab> {
                     ],
                   ),
                 ),
+              const SectionTitle('Datos de la empresa'),
+              Card(
+                child: ListTile(
+                  leading: const Icon(Icons.business_outlined, color: Ox.yellow),
+                  title: Text(d.settings.info.companyName),
+                  subtitle: Text(
+                    d.settings.info.hasContact
+                        ? [
+                            if (d.settings.info.nit != null) 'NIT ${d.settings.info.nit}',
+                            d.settings.info.phone,
+                            d.settings.info.email,
+                          ].whereType<String>().join(' · ')
+                        : 'Agrega NIT, dirección y contacto: aparecen al pie de los PDF y en la app del cliente',
+                  ),
+                  trailing: const Icon(Icons.edit_outlined),
+                  onTap: () => _editCompany(context, d.settings.info),
+                ),
+              ),
               const SectionTitle('Tipo de cambio e impuestos'),
               Card(
                 child: ListTile(
@@ -272,6 +290,62 @@ class _FinanceTabState extends State<FinanceTab> {
       ok: e.recurrence == 'unica' ? 'Marcado como pagado' : 'Pagado · próximo vencimiento ${fecha(next)}',
     );
     if (ok) widget.store.reload();
+  }
+
+  Future<void> _editCompany(BuildContext context, CompanyInfo c) async {
+    final name = TextEditingController(text: c.companyName);
+    final legal = TextEditingController(text: c.legalName ?? '');
+    final nit = TextEditingController(text: c.nit ?? '');
+    final address = TextEditingController(text: c.address ?? '');
+    final phone = TextEditingController(text: c.phone ?? '');
+    final email = TextEditingController(text: c.email ?? '');
+    final web = TextEditingController(text: c.website ?? '');
+    final ok = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        backgroundColor: Ox.graphite,
+        title: const Text('Datos de la empresa'),
+        content: SingleChildScrollView(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Field(name, 'Nombre comercial'),
+              Field(legal, 'Razón social'),
+              Field(nit, 'NIT'),
+              Field(address, 'Dirección'),
+              Field(phone, 'Teléfono / WhatsApp'),
+              Field(email, 'Correo'),
+              Field(web, 'Sitio web'),
+              const Text(
+                'Aparecen al pie de los informes PDF y en la app del cliente.',
+                style: TextStyle(fontSize: 12, color: Ox.lightGray),
+              ),
+            ],
+          ),
+        ),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('Cancelar')),
+          TextButton(onPressed: () => Navigator.pop(ctx, true), child: const Text('Guardar')),
+        ],
+      ),
+    );
+    if (ok != true || !context.mounted) return;
+    String? v(TextEditingController t) => t.text.trim().isEmpty ? null : t.text.trim();
+    if (await guard(
+      context,
+      () => Repo.saveSettings({
+        'company_name': v(name) ?? 'ORVEXA',
+        'legal_name': v(legal),
+        'nit': v(nit),
+        'address': v(address),
+        'phone': v(phone),
+        'email': v(email),
+        'website': v(web),
+      }),
+      ok: 'Guardado',
+    )) {
+      widget.store.reload();
+    }
   }
 
   Future<void> _editSettings(BuildContext context, CompanySettings s) async {

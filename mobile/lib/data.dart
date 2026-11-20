@@ -75,20 +75,23 @@ class Repo {
   static Future<void> bootstrapAdmin(String fullName, String username, String password) =>
       _adminUsers({'action': 'bootstrap', 'full_name': fullName, 'username': username, 'password': password});
 
-  static Future<void> createUser({
+  static Future<String> createUser({
     required String fullName,
     required String username,
     required String password,
     required UserRole role,
     String? phone,
-  }) => _adminUsers({
-    'action': 'create',
-    'full_name': fullName,
-    'username': username,
-    'password': password,
-    'role': role.name,
-    if (phone != null && phone.isNotEmpty) 'phone': phone,
-  });
+  }) async {
+    final r = await _adminUsers({
+      'action': 'create',
+      'full_name': fullName,
+      'username': username,
+      'password': password,
+      'role': role.name,
+      if (phone != null && phone.isNotEmpty) 'phone': phone,
+    });
+    return r['id'] as String;
+  }
 
   static Future<void> updateUser(String id, Map<String, dynamic> patch) =>
       _adminUsers({'action': 'update', 'id': id, ...patch});
@@ -113,6 +116,7 @@ class Repo {
       db.from('payroll_adjustments').select().order('adj_date', ascending: false),
       db.from('payroll_periods').select().order('start_date', ascending: false),
       db.from('payroll_payments').select().order('person_name'),
+      db.from('project_clients').select(),
     ]);
     List<Map<String, dynamic>> l(int i) => List<Map<String, dynamic>>.from(r[i] as List);
     return AdminData(
@@ -129,7 +133,56 @@ class Repo {
       adjustments: l(10).map(PayrollAdjustment.fromMap).toList(),
       periods: l(11).map(PayrollPeriod.fromMap).toList(),
       payments: l(12).map(PayrollPayment.fromMap).toList(),
+      projectClients: l(13).map(ProjectClient.fromMap).toList(),
     );
+  }
+
+  // ------------------------------------------------------------ clientes
+  static Future<void> addProjectClient(String projectId, String clientId) =>
+      db.from('project_clients').upsert({'project_id': projectId, 'client_id': clientId});
+  static Future<void> removeProjectClient(String projectId, String clientId) =>
+      db.from('project_clients').delete().eq('project_id', projectId).eq('client_id', clientId);
+
+  /// Deja al cliente con exactamente estos proyectos.
+  static Future<void> setClientProjects(String clientId, Set<String> projectIds) async {
+    await db.from('project_clients').delete().eq('client_id', clientId);
+    if (projectIds.isNotEmpty) {
+      await db.from('project_clients').insert([
+        for (final id in projectIds) {'project_id': id, 'client_id': clientId},
+      ]);
+    }
+  }
+
+  static Future<ClientData> loadClient() async {
+    final r = await Future.wait([db.rpc('client_projects'), db.rpc('company_public')]);
+    final rows = List<Map<String, dynamic>>.from(r[0] as List);
+    final company = List<Map<String, dynamic>>.from(r[1] as List);
+    return ClientData(
+      projects: rows.map(Project.fromMap).toList(),
+      activeMachines: {for (final m in rows) m['id'] as String: (m['active_machines'] as num?)?.toInt() ?? 0},
+      company: CompanyInfo.fromMap(company.isEmpty ? null : company.first),
+    );
+  }
+
+  static Future<ClientProjectData> loadClientProject(String projectId) async {
+    final rows = List<Map<String, dynamic>>.from(
+      await db.rpc('client_reports', params: {'p_project': projectId}) as List,
+    );
+    final machines = <String, Machine>{};
+    final reports = <DailyReport>[];
+    for (final m in rows) {
+      final mid = m['machine_id'] as String;
+      machines[mid] ??= Machine(
+        id: mid,
+        name: (m['machine_name'] ?? '') as String,
+        type: 'otra',
+        status: 'en_proyecto',
+        operatorDailyPay: 0,
+        helperDailyPay: 0,
+      );
+      reports.add(DailyReport.fromMap({...m, 'assignment_id': '', 'project_id': projectId}));
+    }
+    return ClientProjectData(reports, machines);
   }
 
   // ------------------------------------------------------------ planes de mantenimiento
@@ -333,6 +386,7 @@ class AdminData {
   final List<PayrollAdjustment> adjustments;
   final List<PayrollPeriod> periods;
   final List<PayrollPayment> payments;
+  final List<ProjectClient> projectClients;
   AdminData({
     required this.profiles,
     required this.machines,
@@ -347,11 +401,35 @@ class AdminData {
     this.adjustments = const [],
     this.periods = const [],
     this.payments = const [],
+    this.projectClients = const [],
   });
   late final Map<String, Profile> profileById = {for (final p in profiles) p.id: p};
   late final Map<String, Machine> machineById = {for (final m in machines) m.id: m};
   late final Map<String, Project> projectById = {for (final p in projects) p.id: p};
   String personName(String? id) => id == null ? '—' : (profileById[id]?.display ?? 'Usuario eliminado');
+  List<Profile> clientsOf(String projectId) => [
+    for (final pc in projectClients.where((x) => x.projectId == projectId))
+      if (profileById[pc.clientId] != null) profileById[pc.clientId]!,
+  ];
+  List<Project> projectsOfClient(String clientId) => [
+    for (final pc in projectClients.where((x) => x.clientId == clientId))
+      if (projectById[pc.projectId] != null) projectById[pc.projectId]!,
+  ];
+}
+
+/// Lo que ve un cliente: sus proyectos (sin precios) y los datos de contacto de la empresa.
+class ClientData {
+  final List<Project> projects;
+  final Map<String, int> activeMachines;
+  final CompanyInfo company;
+  ClientData({required this.projects, required this.activeMachines, required this.company});
+}
+
+/// Producción de un proyecto para el cliente (sin pagos, personal ni notas).
+class ClientProjectData {
+  final List<DailyReport> reports;
+  final Map<String, Machine> machines;
+  ClientProjectData(this.reports, this.machines);
 }
 
 class OperatorData {

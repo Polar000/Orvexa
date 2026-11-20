@@ -20,7 +20,9 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'dart:async';
 
 import 'package:orvexa_app/screens/admin/admin_shell.dart';
+import 'package:orvexa_app/screens/admin/people_tab.dart';
 import 'package:orvexa_app/screens/admin/project_detail.dart';
+import 'package:orvexa_app/screens/client/client_home.dart';
 import 'package:orvexa_app/screens/operator/operator_home.dart';
 import 'package:orvexa_app/screens/operator/report_form.dart';
 import 'package:orvexa_app/theme.dart';
@@ -45,6 +47,7 @@ AdminData demo() {
     _p('op3', 'Mario García', UserRole.operador),
     _p('ay1', 'Pedro Gómez', UserRole.ayudante),
     _p('ay2', 'Luis Hernández', UserRole.ayudante),
+    _p('cl1', 'Ing. Ana Ruiz', UserRole.cliente),
   ];
   final machines = [
     Machine(
@@ -377,9 +380,20 @@ AdminData demo() {
         net: 3900,
       ),
     ],
-    settings: CompanySettings(incomeTaxPct: 5, employerSocialPct: 12.67, usdToGtq: 7.64),
+    settings: CompanySettings(incomeTaxPct: 5, employerSocialPct: 12.67, usdToGtq: 7.64, info: demoCompany),
+    projectClients: const [ProjectClient('p1', 'cl1')],
   );
 }
+
+const demoCompany = CompanyInfo(
+  companyName: 'ORVEXA',
+  legalName: 'Empresa de ejemplo, S.A.',
+  nit: '0000000-0',
+  address: 'Dirección de ejemplo, Guatemala',
+  phone: '+502 0000 0000',
+  email: 'contacto@ejemplo.com',
+  website: 'ejemplo.com',
+);
 
 Widget app(Widget home) => MaterialApp(
   debugShowCheckedModeBanner: false,
@@ -552,5 +566,49 @@ void main() {
     await expectLater(find.byType(MaterialApp), matchesGoldenFile('goldens/operador_6_pagos.png'));
     await t.pumpWidget(const SizedBox());
     outbox.dispose();
+  });
+
+  testWidgets('cliente: avance del proyecto', (t) async {
+    await phone(t, h: 2300);
+    final d = demo();
+    final p = d.projectById['p1']!;
+    await t.pumpWidget(
+      app(
+        ClientHome(
+          me: d.profileById['cl1']!,
+          loader: () async => ClientData(projects: [p], activeMachines: {'p1': 2}, company: demoCompany),
+          projectLoader: (id) async => ClientProjectData([
+            for (final r in d.reports.where((r) => r.projectId == id))
+              DailyReport(
+                id: r.id,
+                assignmentId: '',
+                projectId: id,
+                machineId: r.machineId,
+                date: r.date,
+                units: r.units,
+                hours: r.hours,
+                helperPresent: true,
+                operatorPay: 0,
+                helperPay: 0,
+                downtimeHours: r.downtimeHours,
+                downtimeReason: r.downtimeReason,
+              ),
+          ], d.machineById),
+        ),
+      ),
+    );
+    await t.pumpAndSettle();
+    expect(find.text('DESCARGAR INFORME PDF'), findsOneWidget);
+    expect(find.textContaining('0000000-0'), findsOneWidget);
+    await expectLater(find.byType(MaterialApp), matchesGoldenFile('goldens/cliente_1_avance.png'));
+  });
+
+  testWidgets('admin: usuario cliente con proyectos', (t) async {
+    await phone(t, h: 1300);
+    final store = AdminStore()..data = demo();
+    await t.pumpWidget(app(PersonForm(store: store, person: store.data!.profileById['cl1'])));
+    await t.pumpAndSettle();
+    expect(find.text('PROYECTOS QUE PUEDE VER'), findsOneWidget);
+    await expectLater(find.byType(MaterialApp), matchesGoldenFile('goldens/admin_8_cliente.png'));
   });
 }

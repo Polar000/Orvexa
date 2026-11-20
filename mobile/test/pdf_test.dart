@@ -113,10 +113,29 @@ void main() {
       includeAmounts: true,
     );
     expect(report.length, greaterThan(1000));
+    final portal = await clientReportPdf(
+      project: project,
+      reports: reports,
+      machines: machines,
+      from: DateTime(2026, 11, 1),
+      to: DateTime(2026, 11, 15),
+      unitsToDate: 13803,
+      includeNotes: false,
+      company: const CompanyInfo(
+        legalName: 'Empresa de ejemplo, S.A.',
+        nit: '0000000-0',
+        address: 'Dirección de ejemplo, Guatemala',
+        phone: '+502 0000 0000',
+        email: 'contacto@ejemplo.com',
+        website: 'ejemplo.com',
+      ),
+    );
+    expect(portal.length, greaterThan(1000));
     final dir = Platform.environment['PDF_OUT'];
     if (dir != null) {
       File('$dir/recibo.pdf').writeAsBytesSync(receipt);
       File('$dir/reporte_cliente.pdf').writeAsBytesSync(report);
+      File('$dir/reporte_portal_cliente.pdf').writeAsBytesSync(portal);
     }
   });
 }

@@ -167,6 +167,8 @@ class ProjectDetail extends StatelessWidget {
                     ),
                   ),
                 ],
+                const SectionTitle('Acceso del cliente'),
+                _clientAccess(context, d, p),
                 const SectionTitle('Dinero (US\$)'),
                 KpiGrid([
                   Kpi(label: 'Valor contrato', value: moneyShort(st.contractValue), icon: Icons.description_outlined),
@@ -357,12 +359,86 @@ class ProjectDetail extends StatelessWidget {
         to: range.end,
         unitsToDate: toDate,
         includeAmounts: withAmounts,
+        company: d.settings.info,
       );
       await Printing.sharePdf(
         bytes: bytes,
         filename: 'reporte_${p.name.replaceAll(' ', '_')}_${dateKey(range.end)}.pdf',
       );
     });
+  }
+
+  Widget _clientAccess(BuildContext context, AdminData d, Project p) {
+    final linked = d.clientsOf(p.id);
+    final available = d.profiles
+        .where((x) => x.role == UserRole.cliente && x.active && !linked.any((l) => l.id == x.id))
+        .toList();
+    return Card(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          if (linked.isEmpty)
+            const ListTile(
+              leading: Icon(Icons.visibility_off_outlined, color: Ox.lightGray),
+              title: Text('Ningún cliente ve este proyecto'),
+              subtitle: Text('El cliente ve avance, fotos y descarga el PDF. No ve precios ni pagos.'),
+            ),
+          for (final c in linked)
+            ListTile(
+              leading: const Icon(Icons.visibility_outlined, color: Ox.yellow),
+              title: Text(c.display + (c.active ? '' : ' (inactivo)')),
+              subtitle: Text('@${c.username ?? ''}'),
+              trailing: IconButton(
+                tooltip: 'Quitar acceso',
+                icon: const Icon(Icons.link_off),
+                onPressed: () async {
+                  if (!await confirm(
+                    context,
+                    'Quitar acceso',
+                    '${c.display} ya no podrá ver este proyecto.',
+                    action: 'Quitar',
+                  )) {
+                    return;
+                  }
+                  if (!context.mounted) return;
+                  if (await guard(context, () => Repo.removeProjectClient(p.id, c.id), ok: 'Acceso quitado')) {
+                    store.reload();
+                  }
+                },
+              ),
+            ),
+          Padding(
+            padding: const EdgeInsets.fromLTRB(12, 0, 12, 12),
+            child: OutlinedButton.icon(
+              icon: const Icon(Icons.person_add_alt),
+              label: const Text('Dar acceso a un cliente'),
+              onPressed: () async {
+                if (available.isEmpty) {
+                  toast(context, 'Crea primero el usuario del cliente en Personal (rol Cliente)');
+                  return;
+                }
+                final id = await showDialog<String>(
+                  context: context,
+                  builder: (c) => SimpleDialog(
+                    backgroundColor: Ox.graphite,
+                    title: const Text('¿Qué cliente puede ver este proyecto?'),
+                    children: [
+                      for (final x in available)
+                        SimpleDialogOption(
+                          onPressed: () => Navigator.pop(c, x.id),
+                          child: Text('${x.display}  ·  @${x.username ?? ''}'),
+                        ),
+                    ],
+                  ),
+                );
+                if (id == null || !context.mounted) return;
+                if (await guard(context, () => Repo.addProjectClient(p.id, id), ok: 'Acceso dado')) store.reload();
+              },
+            ),
+          ),
+        ],
+      ),
+    );
   }
 
   Widget _line(String a, String b, {Color? color}) => Padding(

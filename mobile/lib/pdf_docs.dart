@@ -152,6 +152,8 @@ Future<Uint8List> clientReportPdf({
   required DateTime to,
   required int unitsToDate, // acumulado del proyecto hasta "to"
   bool includeAmounts = false,
+  bool includeNotes = true, // el cliente no ve las notas internas del operador
+  CompanyInfo company = const CompanyInfo(),
 }) async {
   final rs =
       reports.where((r) => !dayOnly(r.date).isBefore(dayOnly(from)) && !dayOnly(r.date).isAfter(dayOnly(to))).toList()
@@ -163,7 +165,14 @@ Future<Uint8List> clientReportPdf({
   final amount = rs.fold<double>(0, (a, r) => a + reportRevenue(r, project));
 
   final doc = pw.Document(title: 'Reporte ${project.name}', author: 'ORVEXA');
-  final headers = ['Fecha', 'Máquina', project.perUnit ? 'Incas' : 'Unid.', 'Horas', 'Paro', 'Observaciones'];
+  final headers = [
+    'Fecha',
+    'Máquina',
+    project.perUnit ? 'Incas' : 'Unid.',
+    'Horas',
+    'Paro',
+    if (includeNotes) 'Observaciones',
+  ];
   doc.addPage(
     pw.MultiPage(
       pageFormat: PdfPageFormat.letter,
@@ -174,13 +183,7 @@ Future<Uint8List> clientReportPdf({
               '${project.name} - ${fecha(from)} al ${fecha(to)}',
               style: const pw.TextStyle(fontSize: 8, color: _gray),
             ),
-      footer: (c) => pw.Align(
-        alignment: pw.Alignment.centerRight,
-        child: pw.Text(
-          'Página ${c.pageNumber} de ${c.pagesCount}',
-          style: const pw.TextStyle(fontSize: 8, color: _gray),
-        ),
-      ),
+      footer: (c) => companyFooter(company, c.pageNumber, c.pagesCount),
       build: (c) => [
         pw.SizedBox(height: 14),
         pw.Text(project.name, style: pw.TextStyle(fontSize: 16, fontWeight: pw.FontWeight.bold)),
@@ -230,9 +233,16 @@ Future<Uint8List> clientReportPdf({
                 number(r.units),
                 r.hours == null ? '' : numText(r.hours),
                 r.hasDowntime ? '${numText(r.downtimeHours)} h ${downtimeReasonLabels[r.downtimeReason] ?? ''}' : '',
-                r.notes ?? '',
+                if (includeNotes) r.notes ?? '',
               ],
-            ['TOTAL', '', number(units), '', down.totalHours > 0 ? '${numText(down.totalHours)} h' : '', ''],
+            [
+              'TOTAL',
+              '',
+              number(units),
+              '',
+              down.totalHours > 0 ? '${numText(down.totalHours)} h' : '',
+              if (includeNotes) '',
+            ],
           ],
           headerStyle: pw.TextStyle(fontSize: 8, fontWeight: pw.FontWeight.bold, color: PdfColors.white),
           headerDecoration: const pw.BoxDecoration(color: _dark),
@@ -244,7 +254,7 @@ Future<Uint8List> clientReportPdf({
             2: const pw.FixedColumnWidth(40),
             3: const pw.FixedColumnWidth(36),
             4: const pw.FlexColumnWidth(2),
-            5: const pw.FlexColumnWidth(3),
+            if (includeNotes) 5: const pw.FlexColumnWidth(3),
           },
           oddRowDecoration: const pw.BoxDecoration(color: PdfColor.fromInt(0xFFF6F7F7)),
           border: null,
@@ -264,15 +274,53 @@ Future<Uint8List> clientReportPdf({
               ),
             ),
         ],
-        pw.SizedBox(height: 30),
-        pw.Text(
-          'Generado el ${fecha(DateTime.now())} con ORVEXA Operaciones',
-          style: const pw.TextStyle(fontSize: 7, color: _gray),
-        ),
+        pw.SizedBox(height: 20),
+        pw.Text('Generado el ${fecha(DateTime.now())}', style: const pw.TextStyle(fontSize: 7, color: _gray)),
       ],
     ),
   );
   return doc.save();
+}
+
+/// Pie de página con los datos de la empresa (en todas las páginas).
+pw.Widget companyFooter(CompanyInfo c, int page, int pages) {
+  pw.Widget col(List<String?> lines, {bool firstBold = false, pw.CrossAxisAlignment? align}) {
+    final ls = lines.whereType<String>().toList();
+    return pw.Column(
+      crossAxisAlignment: align ?? pw.CrossAxisAlignment.start,
+      children: [
+        for (var i = 0; i < ls.length; i++)
+          pw.Text(
+            ls[i],
+            style: pw.TextStyle(
+              fontSize: 7.5,
+              color: i == 0 && firstBold ? PdfColors.black : _gray,
+              fontWeight: i == 0 && firstBold ? pw.FontWeight.bold : null,
+            ),
+          ),
+      ],
+    );
+  }
+
+  return pw.Container(
+    margin: const pw.EdgeInsets.only(top: 12),
+    padding: const pw.EdgeInsets.only(top: 8),
+    decoration: const pw.BoxDecoration(
+      border: pw.Border(top: pw.BorderSide(color: _yellow, width: 2)),
+    ),
+    child: pw.Row(
+      crossAxisAlignment: pw.CrossAxisAlignment.start,
+      children: [
+        pw.Expanded(
+          flex: 3,
+          child: col([c.companyName, c.legalName, if (c.nit != null) 'NIT ${c.nit}'], firstBold: true),
+        ),
+        pw.Expanded(flex: 3, child: col([c.address])),
+        pw.Expanded(flex: 3, child: col([if (c.phone != null) 'Tel. ${c.phone}', c.email, c.website])),
+        pw.Text('Página $page de $pages', style: const pw.TextStyle(fontSize: 7.5, color: _gray)),
+      ],
+    ),
+  );
 }
 
 pw.Widget _box(String label, String value) => pw.Expanded(

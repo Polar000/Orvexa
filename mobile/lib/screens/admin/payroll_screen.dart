@@ -224,7 +224,10 @@ class _PayrollScreenState extends State<PayrollScreen> {
 
   Future<void> _newAdjustment() async {
     final d = widget.store.data!;
-    final people = {for (final p in d.profiles.where((p) => p.role != UserRole.admin)) p.id: p.display};
+    final people = {
+      for (final p in d.profiles.where((p) => p.role == UserRole.operador || p.role == UserRole.ayudante))
+        p.id: p.display,
+    };
     if (people.isEmpty) {
       toast(context, 'Primero crea operadores o ayudantes', error: true);
       return;

@@ -6,11 +6,16 @@ DateTime? _date(dynamic v) => v == null ? null : DateTime.tryParse(v.toString())
 String dateKey(DateTime d) =>
     '${d.year.toString().padLeft(4, '0')}-${d.month.toString().padLeft(2, '0')}-${d.day.toString().padLeft(2, '0')}';
 
-enum UserRole { admin, operador, ayudante }
+enum UserRole { admin, operador, ayudante, cliente }
 
 UserRole roleFrom(String? s) => UserRole.values.firstWhere((e) => e.name == s, orElse: () => UserRole.operador);
 
-const roleLabels = {UserRole.admin: 'Administrador', UserRole.operador: 'Operador', UserRole.ayudante: 'Ayudante'};
+const roleLabels = {
+  UserRole.admin: 'Administrador',
+  UserRole.operador: 'Operador',
+  UserRole.ayudante: 'Ayudante',
+  UserRole.cliente: 'Cliente',
+};
 
 class Profile {
   final String id;
@@ -537,11 +542,63 @@ class CompanySettings {
   final double incomeTaxPct;
   final double employerSocialPct;
   final double usdToGtq; // tipo de cambio actual
-  CompanySettings({required this.incomeTaxPct, required this.employerSocialPct, this.usdToGtq = 7.64});
+  final CompanyInfo info;
+  CompanySettings({
+    required this.incomeTaxPct,
+    required this.employerSocialPct,
+    this.usdToGtq = 7.64,
+    this.info = const CompanyInfo(),
+  });
   double toUsd(double gtq) => gtq / (usdToGtq <= 0 ? 1 : usdToGtq);
   factory CompanySettings.fromMap(Map<String, dynamic>? m) => CompanySettings(
     incomeTaxPct: _d(m?['income_tax_pct'] ?? 5),
     employerSocialPct: _d(m?['employer_social_pct'] ?? 0),
     usdToGtq: _d(m?['usd_to_gtq'] ?? 7.64),
+    info: CompanyInfo.fromMap(m),
   );
+}
+
+/// Datos de contacto de la empresa: van al pie de los PDF y en la app del cliente.
+class CompanyInfo {
+  final String companyName;
+  final String? legalName;
+  final String? nit;
+  final String? address;
+  final String? phone;
+  final String? email;
+  final String? website;
+  const CompanyInfo({
+    this.companyName = 'ORVEXA',
+    this.legalName,
+    this.nit,
+    this.address,
+    this.phone,
+    this.email,
+    this.website,
+  });
+  static String? _s(dynamic v) {
+    final t = (v ?? '').toString().trim();
+    return t.isEmpty ? null : t;
+  }
+
+  factory CompanyInfo.fromMap(Map<String, dynamic>? m) => CompanyInfo(
+    companyName: _s(m?['company_name']) ?? 'ORVEXA',
+    legalName: _s(m?['legal_name']),
+    nit: _s(m?['nit']),
+    address: _s(m?['address']),
+    phone: _s(m?['phone']),
+    email: _s(m?['email']),
+    website: _s(m?['website']),
+  );
+
+  /// Hay algo más que el nombre para mostrar.
+  bool get hasContact => [legalName, nit, address, phone, email, website].any((v) => v != null);
+}
+
+/// Un cliente (usuario) con acceso a un proyecto.
+class ProjectClient {
+  final String projectId;
+  final String clientId;
+  const ProjectClient(this.projectId, this.clientId);
+  factory ProjectClient.fromMap(Map<String, dynamic> m) => ProjectClient(m['project_id'], m['client_id']);
 }

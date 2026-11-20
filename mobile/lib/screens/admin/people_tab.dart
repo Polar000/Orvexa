@@ -30,6 +30,7 @@ class PeopleTab extends StatelessWidget {
         final groups = {
           UserRole.operador: d.profiles.where((p) => p.role == UserRole.operador).toList(),
           UserRole.ayudante: d.profiles.where((p) => p.role == UserRole.ayudante).toList(),
+          UserRole.cliente: d.profiles.where((p) => p.role == UserRole.cliente).toList(),
           UserRole.admin: d.profiles.where((p) => p.role == UserRole.admin).toList(),
         };
         final totalPay = pay.values.fold<double>(0, (s, l) => s + l.amount);
@@ -64,7 +65,7 @@ class PeopleTab extends StatelessWidget {
               for (final g in groups.entries)
                 if (g.value.isNotEmpty) ...[
                   SectionTitle(
-                    '${const {UserRole.operador: 'Operadores', UserRole.ayudante: 'Ayudantes', UserRole.admin: 'Administradores'}[g.key]} (${g.value.length})',
+                    '${const {UserRole.operador: 'Operadores', UserRole.ayudante: 'Ayudantes', UserRole.cliente: 'Clientes', UserRole.admin: 'Administradores'}[g.key]} (${g.value.length})',
                   ),
                   for (final p in g.value) _tile(context, d, p, pay[p.id]),
                 ],
@@ -98,7 +99,12 @@ class PeopleTab extends StatelessWidget {
           subtitle: Text(
             [
               '@${p.username ?? ''}',
-              if (a != null)
+              if (p.role == UserRole.cliente)
+                (() {
+                  final ps = d.projectsOfClient(p.id);
+                  return ps.isEmpty ? 'Sin proyectos asignados' : 'Ve: ${ps.map((x) => x.name).join(', ')}';
+                })()
+              else if (a != null)
                 '${d.machineById[a.machineId]?.name ?? ''} · ${d.projectById[a.projectId]?.name ?? ''}'
               else if (p.role != UserRole.admin)
                 'Sin asignar',
@@ -139,6 +145,7 @@ class _PersonFormState extends State<PersonForm> {
   final _pass = TextEditingController();
   late UserRole _role = p?.role ?? UserRole.operador;
   late bool _active = p?.active ?? true;
+  late final Set<String> _projects = {if (p != null) ...widget.store.data!.projectsOfClient(p!.id).map((x) => x.id)};
   bool _busy = false;
 
   Future<void> _save() async {
@@ -146,13 +153,14 @@ class _PersonFormState extends State<PersonForm> {
     setState(() => _busy = true);
     final ok = await guard(context, () async {
       if (p == null) {
-        await Repo.createUser(
+        final id = await Repo.createUser(
           fullName: _name.text.trim(),
           username: _user.text.trim(),
           password: _pass.text,
           role: _role,
           phone: _phone.text.trim(),
         );
+        if (_role == UserRole.cliente) await Repo.setClientProjects(id, _projects);
       } else {
         await Repo.updateUser(p!.id, {
           'full_name': _name.text.trim(),
@@ -161,6 +169,7 @@ class _PersonFormState extends State<PersonForm> {
           'active': _active,
         });
         if (_pass.text.isNotEmpty) await Repo.setPassword(p!.id, _pass.text);
+        await Repo.setClientProjects(p!.id, _role == UserRole.cliente ? _projects : {});
       }
     }, ok: p == null ? 'Usuario creado' : 'Usuario actualizado');
     if (!mounted) return;
@@ -186,8 +195,10 @@ class _PersonFormState extends State<PersonForm> {
               segments: const [
                 ButtonSegment(value: UserRole.operador, label: Text('Operador')),
                 ButtonSegment(value: UserRole.ayudante, label: Text('Ayudante')),
+                ButtonSegment(value: UserRole.cliente, label: Text('Cliente')),
                 ButtonSegment(value: UserRole.admin, label: Text('Admin')),
               ],
+              showSelectedIcon: false,
               selected: {_role},
               onSelectionChanged: isMe ? null : (s) => setState(() => _role = s.first),
             ),
@@ -222,6 +233,34 @@ class _PersonFormState extends State<PersonForm> {
                 return (v ?? '').length < 6 ? 'Mínimo 6 caracteres' : null;
               },
             ),
+            if (_role == UserRole.cliente) ...[
+              const SectionTitle('Proyectos que puede ver'),
+              const Padding(
+                padding: EdgeInsets.only(bottom: 8),
+                child: Text(
+                  'Verá el avance, las fotos y podrá descargar el informe PDF. '
+                  'No ve precios, pagos, costos ni datos del personal.',
+                  style: TextStyle(color: Ox.lightGray, fontSize: 12),
+                ),
+              ),
+              Card(
+                child: Column(
+                  children: [
+                    if (widget.store.data!.projects.isEmpty) const ListTile(title: Text('Primero crea un proyecto')),
+                    for (final pr in widget.store.data!.projects)
+                      CheckboxListTile(
+                        value: _projects.contains(pr.id),
+                        activeColor: Ox.yellow,
+                        checkColor: Ox.black,
+                        title: Text(pr.name),
+                        subtitle: (pr.client ?? '').isEmpty ? null : Text(pr.client!),
+                        onChanged: (v) => setState(() => v == true ? _projects.add(pr.id) : _projects.remove(pr.id)),
+                      ),
+                  ],
+                ),
+              ),
+              const SizedBox(height: 12),
+            ],
             if (p != null && !isMe)
               Card(
                 child: SwitchListTile(
@@ -241,7 +280,8 @@ class _PersonFormState extends State<PersonForm> {
               const Padding(
                 padding: EdgeInsets.only(top: 16),
                 child: Text(
-                  'Comparte el usuario y la contraseña con la persona. Podrá entrar desde su teléfono.',
+                  'Comparte el usuario y la contraseña con la persona. Podrá entrar desde su teléfono '
+                  '(el cliente usa la misma app).',
                   style: TextStyle(color: Ox.lightGray, fontSize: 12),
                   textAlign: TextAlign.center,
                 ),

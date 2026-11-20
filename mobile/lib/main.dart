@@ -7,6 +7,7 @@ import 'config.dart';
 import 'data.dart';
 import 'models.dart';
 import 'screens/admin/admin_shell.dart';
+import 'screens/client/client_home.dart';
 import 'screens/login_screen.dart';
 import 'screens/operator/operator_home.dart';
 import 'theme.dart';
@@ -83,7 +84,11 @@ class _AuthGateState extends State<AuthGate> {
             ),
           );
         }
-        return p.role == UserRole.admin ? AdminShell(me: p) : OperatorHome(me: p);
+        return switch (p.role) {
+          UserRole.admin => AdminShell(me: p),
+          UserRole.cliente => ClientHome(me: p),
+          _ => OperatorHome(me: p),
+        };
       },
     );
   }

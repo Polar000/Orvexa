@@ -1,7 +1,7 @@
 // ORVEXA · gestión de usuarios (solo administradores)
 // Acciones:
 //   bootstrap  -> crea el primer administrador (solo si no existe ninguno)
-//   create     -> admin crea operador / ayudante / admin
+//   create     -> admin crea operador / ayudante / cliente / admin
 //   update     -> admin cambia nombre, rol, teléfono, activo
 //   password   -> admin cambia la contraseña de un usuario
 import { createClient } from "npm:@supabase/supabase-js@2";
@@ -42,7 +42,7 @@ Deno.serve(async (req) => {
     if (!username || !password || password.length < 6) {
       throw new Error("Usuario y contraseña (mínimo 6 caracteres) son obligatorios");
     }
-    if (!["admin", "operador", "ayudante"].includes(role)) throw new Error("Rol inválido");
+    if (!["admin", "operador", "ayudante", "cliente"].includes(role)) throw new Error("Rol inválido");
     const email = toEmail(username);
     // Pase de un solo uso: la base rechaza cualquier cuenta nueva sin él (no hay auto-registro).
     const { error: passErr } = await service.from("user_creation_passes").upsert({
@@ -98,6 +98,9 @@ Deno.serve(async (req) => {
         return json({ error: "No puedes desactivarte ni quitarte el rol de admin a ti mismo" }, 400);
       }
       const patch: Record<string, unknown> = {};
+      if ("role" in body && !["admin", "operador", "ayudante", "cliente"].includes(String(body.role))) {
+        return json({ error: "Rol inválido" }, 400);
+      }
       for (const k of ["full_name", "role", "phone", "active"]) if (k in body) patch[k] = body[k];
       const { error } = await service.from("profiles").update(patch).eq("id", id);
       if (error) throw new Error(error.message);
