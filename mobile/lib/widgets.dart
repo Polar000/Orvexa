@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
 import 'data.dart';
+import 'logo_mark.dart';
 import 'theme.dart';
 
 void toast(BuildContext context, String msg, {bool error = false}) {
@@ -43,26 +44,49 @@ Future<bool> confirm(BuildContext context, String title, String body, {String ac
   return r == true;
 }
 
+/// Símbolo ORVEXA (Impacto). En tamaños pequeños usa la versión simplificada.
 class Logo extends StatelessWidget {
   final double size;
   const Logo({super.key, this.size = 40});
   @override
-  Widget build(BuildContext context) => Container(
+  Widget build(BuildContext context) => SizedBox(
     width: size,
     height: size,
-    decoration: BoxDecoration(
-      color: Ox.black,
-      borderRadius: BorderRadius.circular(size * 0.22),
-      border: Border.all(color: Ox.yellow.withValues(alpha: 0.6)),
-      boxShadow: [BoxShadow(color: Ox.yellow.withValues(alpha: 0.18), blurRadius: 18)],
-    ),
-    alignment: Alignment.center,
-    child: Text(
-      'O',
-      style: Theme.of(context).textTheme.headlineSmall
-          ?.copyWith(color: Ox.yellow, fontWeight: FontWeight.w900, fontSize: size * 0.5),
-    ),
+    child: CustomPaint(painter: LogoPainter(small: size < 64)),
   );
+}
+
+class LogoPainter extends CustomPainter {
+  final bool small;
+  final Color core;
+  final Color ring;
+  const LogoPainter({this.small = false, this.core = Ox.white, this.ring = Ox.yellow});
+  @override
+  void paint(Canvas canvas, Size size) {
+    // Recorta el margen vacío del diseño para que el símbolo llene el espacio.
+    final (o, span) = small ? (22.0, 156.0) : (6.0, 188.0);
+    final k = size.shortestSide / span;
+    canvas.save();
+    canvas.scale(k);
+    canvas.translate(-o, -o);
+    for (final r in small ? logoRectsSmall : logoRectsFull) {
+      final c = (r.core ? core : ring).withValues(alpha: r.opacity);
+      final rect = RRect.fromRectAndRadius(Rect.fromLTWH(r.x, r.y, r.w, r.h), Radius.circular(r.rx));
+      final paint = Paint()
+        ..color = c
+        ..isAntiAlias = true;
+      if (r.stroke > 0) {
+        paint
+          ..style = PaintingStyle.stroke
+          ..strokeWidth = r.stroke;
+      }
+      canvas.drawRRect(rect, paint);
+    }
+    canvas.restore();
+  }
+
+  @override
+  bool shouldRepaint(LogoPainter old) => old.small != small || old.core != core || old.ring != ring;
 }
 
 class SectionTitle extends StatelessWidget {

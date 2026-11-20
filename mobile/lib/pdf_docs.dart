@@ -5,12 +5,14 @@ import 'package:pdf/pdf.dart';
 import 'package:pdf/widgets.dart' as pw;
 
 import 'calc.dart';
+import 'logo_mark.dart';
 import 'models.dart';
 import 'theme.dart';
 import 'widgets.dart' show numText;
 
 const _yellow = PdfColor.fromInt(0xFFF5B800);
 const _dark = PdfColor.fromInt(0xFF15191C);
+const _black = PdfColor.fromInt(0xFF080A0B);
 const _gray = PdfColor.fromInt(0xFF6B7276);
 const _line = PdfColor.fromInt(0xFFDDDFE0);
 
@@ -23,14 +25,11 @@ pw.Widget _header(String title, String subtitle) => pw.Container(
     crossAxisAlignment: pw.CrossAxisAlignment.end,
     children: [
       pw.Container(
-        width: 34,
-        height: 34,
-        alignment: pw.Alignment.center,
-        decoration: pw.BoxDecoration(color: _dark, borderRadius: pw.BorderRadius.circular(6)),
-        child: pw.Text(
-          'O',
-          style: pw.TextStyle(color: _yellow, fontWeight: pw.FontWeight.bold, fontSize: 18),
-        ),
+        width: 38,
+        height: 38,
+        padding: const pw.EdgeInsets.all(3),
+        decoration: pw.BoxDecoration(color: _black, borderRadius: pw.BorderRadius.circular(6)),
+        child: pw.SvgImage(svg: logoSvgSmall.replaceFirst('viewBox="0 0 200 200"', 'viewBox="22 22 156 156"')),
       ),
       pw.SizedBox(width: 10),
       pw.Column(
